@@ -1,0 +1,167 @@
+# Build directories
+build/
+build-*/
+cmake-build-*/
+out/
+
+# CMake cache and generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+CTestTestfile.cmake
+*.cmake
+
+# Compiled binaries
+*.exe
+*.app
+*.out
+*.o
+*.obj
+*.so
+*.dylib
+*.dll
+*.a
+*.lib
+
+# Qt generated files
+*.pro.user
+*.pro.user.*
+*.qmake.stash
+moc_*.cpp
+moc_*.h
+qrc_*.cpp
+ui_*.h
+*.qm
+.qmake.cache
+
+# IDE and editor files
+.vscode/
+.vs/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# User data directories (IMPORTANT - keeps your recordings/presets private!)
+clips/
+recordings/
+presets/
+Clips/
+Recordings/
+Presets/
+*.wav
+*.mp3
+*.flac
+*.ogg
+
+# User configuration files
+config.json
+settings.json
+user_settings.json
+*.ini
+
+# Logs
+*.log
+logs/
+
+# Package manager directories
+vcpkg/
+vcpkg_installed/
+
+# MinGW/Compiler artifacts
+*.gch
+*.pch
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# macOS specific
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows specific
+*.stackdump
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux specific
+.directory
+.Trash-*
+
+# Chocolatey (Windows package manager)
+chocolatey/
+
+# Downloaded dependencies
+miniaudio/
+*.zip
+*.tar.gz
+
+# Python (if used for scripts)
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+ENV/
+
+# Node modules (if you add any web tools)
+node_modules/
+
+# Compiled Qt resources
+*.qrc.depends
+
+# Qt Creator files
+*.pro.user*
+*.autosave
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# JetBrains IDEs
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Generated documentation
+docs/_build/
+site/
+
+# Test outputs
+test_results/
+coverage/
+
+# Installer artifacts (keep source scripts, ignore generated installers)
+*.msi
+*.dmg
+*.pkg
+*.deb
+*.rpm
+*.appimage
+
+# Core dumps
+core
+core.*
+*.core

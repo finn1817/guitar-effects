@@ -1,0 +1,33 @@
+# Auto detect text files and normalize line endings to LF
+* text=auto
+
+# Shell scripts should always use LF
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Batch files should always use CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Source code
+*.cpp text
+*.h text
+*.c text
+*.hpp text
+*.cmake text
+CMakeLists.txt text
+
+# Documentation
+*.md text
+*.txt text
+LICENSE text
+README text
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.wav binary
+*.mp3 binary
+*.flac binary
