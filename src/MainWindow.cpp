@@ -11,6 +11,8 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QFile>
+#include <QScreen>
+#include <QApplication>
 #include <cmath>
 
 MainWindow::MainWindow(QWidget *parent)
@@ -1774,6 +1776,22 @@ void MainWindow::applyQuickPreset(const QString& name)
 
 void MainWindow::applyDarkTheme()
 {
+    // Global palette (covers built-in widgets even if stylesheet fails)
+    QPalette pal;
+    pal.setColor(QPalette::Window, QColor(0x1d,0x1f,0x21));
+    pal.setColor(QPalette::WindowText, QColor(0xf0,0xf0,0xf0));
+    pal.setColor(QPalette::Base, QColor(0x26,0x2a,0x2d));
+    pal.setColor(QPalette::AlternateBase, QColor(0x2f,0x33,0x36));
+    pal.setColor(QPalette::ToolTipBase, QColor(0x2f,0x33,0x36));
+    pal.setColor(QPalette::ToolTipText, QColor(0xf0,0xf0,0xf0));
+    pal.setColor(QPalette::Text, QColor(0xf0,0xf0,0xf0));
+    pal.setColor(QPalette::Button, QColor(0x3a,0x3f,0x44));
+    pal.setColor(QPalette::ButtonText, QColor(0xff,0xff,0xff));
+    pal.setColor(QPalette::BrightText, QColor(0xff,0x00,0x00));
+    pal.setColor(QPalette::Highlight, QColor(0x49,0x78,0xff));
+    pal.setColor(QPalette::HighlightedText, QColor(0xff,0xff,0xff));
+    QApplication::setPalette(pal);
+
     QString style = R"(QWidget { background-color: #1d1f21; color: #f0f0f0; }
 QGroupBox { border:1px solid #3a3d40; margin-top:4px; background-color:#2a2d30; border-radius:4px; }
 QToolButton { background:#2f3336; color:#f0f0f0; font-weight:bold; padding:6px; border:1px solid #3a3d40; border-radius:4px; }
@@ -1791,5 +1809,26 @@ QScrollBar::handle:vertical { background:#4978ff; min-height:20px; border-radius
 QProgressBar { border:1px solid #3a3d40; text-align:center; }
 QProgressBar::chunk { background-color:#4978ff; }
 )";
-    setStyleSheet(style);
+    QApplication::setStyleSheet(style);
+}
+
+void MainWindow::showEvent(QShowEvent* event)
+{
+    QMainWindow::showEvent(event);
+    if (firstShow_) {
+        firstShow_ = false;
+        // Force 1920x1080 or scale down to available screen preserving aspect
+        QScreen* scr = QGuiApplication::primaryScreen();
+        QSize target(1920,1080);
+        QRect avail = scr->availableGeometry();
+        if (target.width() > avail.width() || target.height() > avail.height()) {
+            // scale proportionally
+            double wRatio = (double)avail.width()/target.width();
+            double hRatio = (double)avail.height()/target.height();
+            double ratio = std::min(wRatio, hRatio);
+            target = QSize(int(target.width()*ratio), int(target.height()*ratio));
+        }
+        resize(target);
+        move(avail.center() - QPoint(target.width()/2, target.height()/2));
+    }
 }

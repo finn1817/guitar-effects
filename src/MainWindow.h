@@ -86,6 +86,10 @@ private slots:
 private:
     void setupUI();
     void applyDarkTheme();
+protected:
+    void showEvent(QShowEvent* event) override;
+private:
+    bool firstShow_ { true }; 
     void createAudioIOPanel();
     void createMetersPanel();
     void createEffectsPanel();
