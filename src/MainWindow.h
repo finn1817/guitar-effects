@@ -143,6 +143,8 @@ private:
     QSlider* driveAmount_;
     QComboBox* driveType_;
     QLabel* driveAmountLabel_;
+    QSlider* preGainSlider_;
+    QLabel* preGainLabel_;
     
     // Effects - EQ
     QCheckBox* eqBypass_;
@@ -160,6 +162,8 @@ private:
     QLabel* midQLabel_;
     QLabel* highGainLabel_;
     QLabel* highFreqLabel_;
+    QSlider* presenceGain_;
+    QLabel* presenceGainLabel_;
     
     // Effects - Compressor
     QCheckBox* compBypass_;
@@ -232,6 +236,9 @@ private:
     QPushButton* savePresetButton_;
     QPushButton* loadPresetButton_;
     QPushButton* deletePresetButton_;
+    QPushButton* quickDistButton_;
+    QPushButton* quickAcousticButton_;
+    QPushButton* quickAmbientButton_;
     
     // State
     bool engineRunning_;
@@ -244,6 +251,11 @@ private:
     void refreshLoopButtonsStyles();
     void onLoopSlotClicked(int index);
     void onLoopRemoveAll();
+
+    // Quick presets
+    void applyQuickPreset(const QString& name);
+    int mapPercentToRange(int pct, int minVal, int maxVal) { return minVal + (maxVal - minVal) * pct / 100; }
+    float mapPercentToRangeF(int pct, float minVal, float maxVal) { return minVal + (maxVal - minVal) * (pct / 100.0f); }
 };
 
 #endif // MAINWINDOW_H

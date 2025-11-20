@@ -106,7 +106,9 @@ void DSPChain::processDrive(float* buffer, int numSamples)
 {
     float amount = params_.driveAmount.load();
     int type = params_.driveType.load();
-    float gain = 1.0f + amount * 20.0f;
+    // Apply pre-gain scaling (1..8x) before distortion curve
+    float pre = 1.0f + params_.preGain.load() * 7.0f;
+    float gain = pre * (1.0f + amount * 20.0f);
     
     for (int i = 0; i < numSamples; ++i) {
         float x = buffer[i] * gain;
@@ -141,6 +143,7 @@ void DSPChain::processEQ(float* buffer, int numSamples)
     float b0_low, b1_low, b2_low, a1_low, a2_low;
     float b0_mid, b1_mid, b2_mid, a1_mid, a2_mid;
     float b0_high, b1_high, b2_high, a1_high, a2_high;
+    float b0_presence, b1_presence, b2_presence, a1_presence, a2_presence;
     
     calculateBiquadCoeffs(params_.lowFreq.load(), 0.707f, params_.lowGain.load(), 
                          true, b0_low, b1_low, b2_low, a1_low, a2_low);
@@ -148,6 +151,9 @@ void DSPChain::processEQ(float* buffer, int numSamples)
                          false, b0_mid, b1_mid, b2_mid, a1_mid, a2_mid);
     calculateBiquadCoeffs(params_.highFreq.load(), 0.707f, params_.highGain.load(), 
                          true, b0_high, b1_high, b2_high, a1_high, a2_high);
+    // Presence additional high shelf (independent gain)
+    calculateBiquadCoeffs(params_.presenceFreq.load(), 0.707f, params_.presenceGain.load(),
+                          true, b0_presence, b1_presence, b2_presence, a1_presence, a2_presence);
     
     for (int i = 0; i < numSamples; ++i) {
         float sample = buffer[i];
@@ -163,6 +169,9 @@ void DSPChain::processEQ(float* buffer, int numSamples)
         // High shelf
         sample = processBiquad(sample, &highZ1_[ch], &highZ2_[ch], 
                               b0_high, b1_high, b2_high, a1_high, a2_high);
+        // Presence shelf
+        sample = processBiquad(sample, &presenceZ1_[ch], &presenceZ2_[ch],
+                       b0_presence, b1_presence, b2_presence, a1_presence, a2_presence);
         
         buffer[i] = sample;
     }

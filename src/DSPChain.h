@@ -17,6 +17,7 @@ struct DSPParams {
     std::atomic<bool> driveBypass{true};
     std::atomic<float> driveAmount{0.5f};
     std::atomic<int> driveType{0}; // 0=soft, 1=hard, 2=asym
+    std::atomic<float> preGain{0.0f}; // 0..1 normalized, mapped to 1..8x before distortion
     
     // EQ
     std::atomic<bool> eqBypass{true};
@@ -27,6 +28,8 @@ struct DSPParams {
     std::atomic<float> midQ{1.0f};
     std::atomic<float> highGain{0.0f};
     std::atomic<float> highFreq{8000.0f};
+    std::atomic<float> presenceGain{0.0f}; // dB boost/cut for presence high shelf
+    std::atomic<float> presenceFreq{5000.0f}; // center freq for presence shelf
     
     // Compressor
     std::atomic<bool> compBypass{true};
@@ -86,6 +89,7 @@ private:
     float lowZ1_[2]{}, lowZ2_[2]{};
     float midZ1_[2]{}, midZ2_[2]{};
     float highZ1_[2]{}, highZ2_[2]{};
+    float presenceZ1_[2]{}, presenceZ2_[2]{};
     
     // Compressor state
     float compEnvelope_{0.0f};

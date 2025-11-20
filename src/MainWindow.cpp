@@ -282,6 +282,14 @@ void MainWindow::createEffectsPanel()
     driveType_->addItem("Hard Clip");
     driveType_->addItem("Asymmetric");
     driveGrid->addWidget(driveType_, 1, 1, 1, 2);
+
+    driveGrid->addWidget(new QLabel("Pre Gain:"), 2, 0);
+    preGainSlider_ = new QSlider(Qt::Horizontal);
+    preGainSlider_->setRange(0, 100);
+    preGainSlider_->setValue(50);
+    driveGrid->addWidget(preGainSlider_, 2, 1);
+    preGainLabel_ = new QLabel("50%");
+    driveGrid->addWidget(preGainLabel_, 2, 2);
     
     driveLayout->addLayout(driveGrid);
     driveLayout->addStretch();
@@ -290,6 +298,7 @@ void MainWindow::createEffectsPanel()
     connect(driveAmount_, &QSlider::valueChanged, this, &MainWindow::onEffectParameterChanged);
     connect(driveType_, QOverload<int>::of(&QComboBox::currentIndexChanged), 
             this, &MainWindow::onEffectParameterChanged);
+    connect(preGainSlider_, &QSlider::valueChanged, this, &MainWindow::onEffectParameterChanged);
     
     effectsTab->addTab(driveWidget, "Drive");
     
@@ -360,6 +369,15 @@ void MainWindow::createEffectsPanel()
     eqGrid->addWidget(highFreq_, 6, 1);
     highFreqLabel_ = new QLabel("8000 Hz");
     eqGrid->addWidget(highFreqLabel_, 6, 2);
+
+    // Presence shelf
+    eqGrid->addWidget(new QLabel("Presence Gain:"), 7, 0);
+    presenceGain_ = new QSlider(Qt::Horizontal);
+    presenceGain_->setRange(-12, 12);
+    presenceGain_->setValue(0);
+    eqGrid->addWidget(presenceGain_, 7, 1);
+    presenceGainLabel_ = new QLabel("0 dB");
+    eqGrid->addWidget(presenceGainLabel_, 7, 2);
     
     eqLayout->addLayout(eqGrid);
     eqLayout->addStretch();
@@ -372,8 +390,23 @@ void MainWindow::createEffectsPanel()
     connect(midQ_, &QSlider::valueChanged, this, &MainWindow::onEffectParameterChanged);
     connect(highGain_, &QSlider::valueChanged, this, &MainWindow::onEffectParameterChanged);
     connect(highFreq_, &QSlider::valueChanged, this, &MainWindow::onEffectParameterChanged);
+    connect(presenceGain_, &QSlider::valueChanged, this, &MainWindow::onEffectParameterChanged);
     
     effectsTab->addTab(eqWidget, "EQ");
+
+    // Quick Preset Buttons Row
+    QWidget* quickPresetWidget = new QWidget();
+    QHBoxLayout* quickLayout = new QHBoxLayout(quickPresetWidget);
+    quickDistButton_ = new QPushButton("High Distortion");
+    quickAcousticButton_ = new QPushButton("Acoustic Clean");
+    quickAmbientButton_ = new QPushButton("Ambient Space");
+    quickLayout->addWidget(quickDistButton_);
+    quickLayout->addWidget(quickAcousticButton_);
+    quickLayout->addWidget(quickAmbientButton_);
+    effectsTab->addTab(quickPresetWidget, "Quick Presets");
+    connect(quickDistButton_, &QPushButton::clicked, [this]{ applyQuickPreset("distortion"); });
+    connect(quickAcousticButton_, &QPushButton::clicked, [this]{ applyQuickPreset("acoustic"); });
+    connect(quickAmbientButton_, &QPushButton::clicked, [this]{ applyQuickPreset("ambient"); });
     
     // Compressor Tab
     QWidget* compWidget = new QWidget();
@@ -805,37 +838,46 @@ void MainWindow::onEffectParameterChanged()
     
     auto& params = audioEngine_->getDSPChain()->getParams();
     
-    // Gate
-    params.gateThreshold.store(gateThreshold_->value());
-    gateThresholdLabel_->setText(QString::number(gateThreshold_->value()) + " dB");
+    // Gate (0-100 -> -80..0 dB)
+    float gateDb = -80.0f + (gateThreshold_->value() / 100.0f) * 80.0f;
+    params.gateThreshold.store(gateDb);
+    gateThresholdLabel_->setText(QString::number(gateDb, 'f', 0) + " dB");
     
     // Drive
     params.driveAmount.store(driveAmount_->value() / 100.0f);
     params.driveType.store(driveType_->currentIndex());
     driveAmountLabel_->setText(QString::number(driveAmount_->value()) + "%");
+    params.preGain.store(preGainSlider_->value() / 100.0f);
+    preGainLabel_->setText(QString::number(preGainSlider_->value()) + "%");
     
     // EQ
     params.lowGain.store(lowGain_->value());
     params.lowFreq.store(lowFreq_->value());
     params.midGain.store(midGain_->value());
     params.midFreq.store(midFreq_->value());
-    params.midQ.store(midQ_->value() / 10.0f);
+    float midQVal = 0.5f + (midQ_->value() / 100.0f) * (5.0f - 0.5f);
+    params.midQ.store(midQVal);
     params.highGain.store(highGain_->value());
     params.highFreq.store(highFreq_->value());
+    params.presenceGain.store(presenceGain_->value());
     
     lowGainLabel_->setText(QString::number(lowGain_->value()) + " dB");
     lowFreqLabel_->setText(QString::number(lowFreq_->value()) + " Hz");
     midGainLabel_->setText(QString::number(midGain_->value()) + " dB");
     midFreqLabel_->setText(QString::number(midFreq_->value()) + " Hz");
-    midQLabel_->setText(QString::number(midQ_->value() / 10.0f, 'f', 1));
+    midQLabel_->setText(QString::number(midQVal, 'f', 2));
     highGainLabel_->setText(QString::number(highGain_->value()) + " dB");
     highFreqLabel_->setText(QString::number(highFreq_->value()) + " Hz");
+    if (presenceGain_) presenceGainLabel_->setText(QString::number(presenceGain_->value()) + " dB");
+    presenceGainLabel_->setText(QString::number(presenceGain_->value()) + " dB");
     
     // Compressor
-    params.compThreshold.store(compThreshold_->value());
-    params.compRatio.store(compRatio_->value() / 10.0f);
-    compThresholdLabel_->setText(QString::number(compThreshold_->value()) + " dB");
-    compRatioLabel_->setText(QString::number(compRatio_->value() / 10.0f, 'f', 1) + ":1");
+    float compDb = -40.0f + (compThreshold_->value() / 100.0f) * 40.0f;
+    float compRatioVal = 1.0f + (compRatio_->value() / 100.0f) * 9.0f;
+    params.compThreshold.store(compDb);
+    params.compRatio.store(compRatioVal);
+    compThresholdLabel_->setText(QString::number(compDb, 'f', 0) + " dB");
+    compRatioLabel_->setText(QString::number(compRatioVal, 'f', 2) + ":1");
     
     // Delay
     params.delayTime.store(delayTime_->value() / 1000.0f);
@@ -1244,7 +1286,9 @@ void MainWindow::updateEffectsUI()
     
     // Update all UI elements from parameters
     gateBypass_->setChecked(params.gateBypass.load());
-    gateThreshold_->setValue(params.gateThreshold.load());
+    // Inverse map gate threshold (-80..0 dB) back to 0..100 slider
+    int gatePct = static_cast<int>(((params.gateThreshold.load() + 80.0f) / 80.0f) * 100.0f);
+    gateThreshold_->setValue(std::max(0, std::min(100, gatePct)));
     
     driveBypass_->setChecked(params.driveBypass.load());
     driveAmount_->setValue(params.driveAmount.load() * 100);
@@ -1255,13 +1299,19 @@ void MainWindow::updateEffectsUI()
     lowFreq_->setValue(params.lowFreq.load());
     midGain_->setValue(params.midGain.load());
     midFreq_->setValue(params.midFreq.load());
-    midQ_->setValue(params.midQ.load() * 10);
+    int midQPct = static_cast<int>(((params.midQ.load() - 0.5f) / (5.0f - 0.5f)) * 100.0f);
+    midQ_->setValue(std::max(0, std::min(100, midQPct)));
     highGain_->setValue(params.highGain.load());
     highFreq_->setValue(params.highFreq.load());
+    if (presenceGain_) presenceGain_->setValue(params.presenceGain.load());
     
     compBypass_->setChecked(params.compBypass.load());
-    compThreshold_->setValue(params.compThreshold.load());
-    compRatio_->setValue(params.compRatio.load() * 10);
+    int compTPct = static_cast<int>(((params.compThreshold.load() + 40.0f) / 40.0f) * 100.0f);
+    compThreshold_->setValue(std::max(0, std::min(100, compTPct)));
+    int compRatioPct = static_cast<int>(((params.compRatio.load() - 1.0f) / 9.0f) * 100.0f);
+    compRatio_->setValue(std::max(0, std::min(100, compRatioPct)));
+    int preGainPct = static_cast<int>(params.preGain.load() * 100.0f);
+    preGainSlider_->setValue(std::max(0, std::min(100, preGainPct)));
     
     pitchBypass_->setChecked(params.pitchBypass.load());
     int pitchMode = params.pitchMode.load();
@@ -1282,7 +1332,26 @@ void MainWindow::updateEffectsUI()
     looperLevelSlider_->setValue(audioEngine_->getLooper()->getLoopLevel() * 100);
     
     // Trigger label updates
-    onEffectParameterChanged();
+    // Update labels without writing back (avoid recursion)
+    gateThresholdLabel_->setText(QString::number(params.gateThreshold.load(), 'f', 0) + " dB");
+    driveAmountLabel_->setText(QString::number(driveAmount_->value()) + "%");
+    preGainLabel_->setText(QString::number(preGainSlider_->value()) + "%");
+    lowGainLabel_->setText(QString::number(lowGain_->value()) + " dB");
+    lowFreqLabel_->setText(QString::number(lowFreq_->value()) + " Hz");
+    midGainLabel_->setText(QString::number(midGain_->value()) + " dB");
+    midFreqLabel_->setText(QString::number(midFreq_->value()) + " Hz");
+    midQLabel_->setText(QString::number(params.midQ.load(), 'f', 2));
+    highGainLabel_->setText(QString::number(highGain_->value()) + " dB");
+    highFreqLabel_->setText(QString::number(highFreq_->value()) + " Hz");
+    if (presenceGain_) presenceGainLabel_->setText(QString::number(presenceGain_->value()) + " dB");
+    compThresholdLabel_->setText(QString::number(params.compThreshold.load(), 'f', 0) + " dB");
+    compRatioLabel_->setText(QString::number(params.compRatio.load(), 'f', 2) + ":1");
+    delayTimeLabel_->setText(QString::number(delayTime_->value()) + " ms");
+    delayFeedbackLabel_->setText(QString::number(delayFeedback_->value()) + "%");
+    delayMixLabel_->setText(QString::number(delayMix_->value()) + "%");
+    reverbSizeLabel_->setText(QString::number(reverbSize_->value()) + "%");
+    reverbDampingLabel_->setText(QString::number(reverbDamping_->value()) + "%");
+    reverbMixLabel_->setText(QString::number(reverbMix_->value()) + "%");
 }
 
 void MainWindow::savePresetToFile(const QString& name)
@@ -1301,6 +1370,7 @@ void MainWindow::savePresetToFile(const QString& name)
     json["driveBypass"] = params.driveBypass.load();
     json["driveAmount"] = static_cast<double>(params.driveAmount.load());
     json["driveType"] = params.driveType.load();
+    json["preGain"] = static_cast<double>(params.preGain.load());
     
     // EQ
     json["eqBypass"] = params.eqBypass.load();
@@ -1311,6 +1381,7 @@ void MainWindow::savePresetToFile(const QString& name)
     json["midQ"] = static_cast<double>(params.midQ.load());
     json["highGain"] = static_cast<double>(params.highGain.load());
     json["highFreq"] = static_cast<double>(params.highFreq.load());
+    json["presenceGain"] = static_cast<double>(params.presenceGain.load());
     
     // Compressor
     json["compBypass"] = params.compBypass.load();
@@ -1370,6 +1441,7 @@ void MainWindow::loadPresetFromFile(const QString& name)
     params.driveBypass.store(json["driveBypass"].toBool());
     params.driveAmount.store(json["driveAmount"].toDouble());
     params.driveType.store(json["driveType"].toInt());
+    if (json.contains("preGain")) params.preGain.store(json["preGain"].toDouble());
     
     // EQ
     params.eqBypass.store(json["eqBypass"].toBool());
@@ -1380,6 +1452,7 @@ void MainWindow::loadPresetFromFile(const QString& name)
     params.midQ.store(json["midQ"].toDouble());
     params.highGain.store(json["highGain"].toDouble());
     params.highFreq.store(json["highFreq"].toDouble());
+    if (json.contains("presenceGain")) params.presenceGain.store(json["presenceGain"].toDouble());
     
     // Compressor
     params.compBypass.store(json["compBypass"].toBool());
@@ -1534,4 +1607,128 @@ void MainWindow::onLoopRemoveAll()
     loopSlotButtons_.clear();
     loopRemoveAllButton_->setEnabled(false);
     refreshLoopButtonsStyles();
+}
+
+void MainWindow::applyQuickPreset(const QString& name)
+{
+    if (!audioEngine_->getDSPChain()) return;
+    auto& p = audioEngine_->getDSPChain()->getParams();
+
+    if (name == "distortion") {
+        // High distortion: strong drive, pre-gain high, scooped mids, presence boost, short delay, small reverb
+        p.driveBypass.store(false);
+        driveBypass_->setChecked(false);
+        driveAmount_->setValue(85); // heavy drive
+        preGainSlider_->setValue(80);
+        p.driveAmount.store(0.85f);
+        p.preGain.store(0.80f);
+        p.eqBypass.store(false);
+        eqBypass_->setChecked(false);
+        lowGain_->setValue(4);
+        midGain_->setValue(-6);
+        highGain_->setValue(5);
+        presenceGain_->setValue(6);
+        p.lowGain.store(4);
+        p.midGain.store(-6);
+        p.highGain.store(5);
+        p.presenceGain.store(6);
+        p.compBypass.store(false);
+        compBypass_->setChecked(false);
+        compThreshold_->setValue(60); // ~ -16 dB
+        compRatio_->setValue(70); // ~7.3:1
+        p.compThreshold.store(-16.0f);
+        p.compRatio.store(7.3f);
+        p.delayBypass.store(false);
+        delayBypass_->setChecked(false);
+        delayTime_->setValue(180); // 180 ms
+        delayFeedback_->setValue(25);
+        delayMix_->setValue(15);
+        p.delayTime.store(0.180f);
+        p.delayFeedback.store(0.25f);
+        p.delayMix.store(0.15f);
+        p.reverbBypass.store(false);
+        reverbBypass_->setChecked(false);
+        reverbSize_->setValue(30);
+        reverbDamping_->setValue(40);
+        reverbMix_->setValue(12);
+        p.reverbSize.store(0.30f);
+        p.reverbDamping.store(0.40f);
+        p.reverbMix.store(0.12f);
+    } else if (name == "acoustic") {
+        // Acoustic clean: low drive, gentle EQ boost highs, moderate presence, light compression, subtle reverb
+        p.driveBypass.store(false);
+        driveBypass_->setChecked(false);
+        driveAmount_->setValue(10);
+        preGainSlider_->setValue(20);
+        p.driveAmount.store(0.10f);
+        p.preGain.store(0.20f);
+        p.eqBypass.store(false);
+        eqBypass_->setChecked(false);
+        lowGain_->setValue(2);
+        midGain_->setValue(0);
+        highGain_->setValue(3);
+        presenceGain_->setValue(4);
+        p.lowGain.store(2);
+        p.midGain.store(0);
+        p.highGain.store(3);
+        p.presenceGain.store(4);
+        p.compBypass.store(false);
+        compBypass_->setChecked(false);
+        compThreshold_->setValue(50); // ~ -20 dB
+        compRatio_->setValue(30); // ~3.7:1
+        p.compThreshold.store(-20.0f);
+        p.compRatio.store(3.7f);
+        p.delayBypass.store(true);
+        delayBypass_->setChecked(true);
+        p.reverbBypass.store(false);
+        reverbBypass_->setChecked(false);
+        reverbSize_->setValue(45);
+        reverbDamping_->setValue(55);
+        reverbMix_->setValue(22);
+        p.reverbSize.store(0.45f);
+        p.reverbDamping.store(0.55f);
+        p.reverbMix.store(0.22f);
+    } else if (name == "ambient") {
+        // Ambient space: moderate drive, big delay + reverb, scooped lows, airy highs, strong presence
+        p.driveBypass.store(false);
+        driveBypass_->setChecked(false);
+        driveAmount_->setValue(35);
+        preGainSlider_->setValue(40);
+        p.driveAmount.store(0.35f);
+        p.preGain.store(0.40f);
+        p.eqBypass.store(false);
+        eqBypass_->setChecked(false);
+        lowGain_->setValue(-2);
+        midGain_->setValue(1);
+        highGain_->setValue(6);
+        presenceGain_->setValue(8);
+        p.lowGain.store(-2);
+        p.midGain.store(1);
+        p.highGain.store(6);
+        p.presenceGain.store(8);
+        p.compBypass.store(false);
+        compBypass_->setChecked(false);
+        compThreshold_->setValue(55); // ~ -18 dB
+        compRatio_->setValue(45); // ~5.0:1
+        p.compThreshold.store(-18.0f);
+        p.compRatio.store(5.0f);
+        p.delayBypass.store(false);
+        delayBypass_->setChecked(false);
+        delayTime_->setValue(650);
+        delayFeedback_->setValue(55);
+        delayMix_->setValue(40);
+        p.delayTime.store(0.650f);
+        p.delayFeedback.store(0.55f);
+        p.delayMix.store(0.40f);
+        p.reverbBypass.store(false);
+        reverbBypass_->setChecked(false);
+        reverbSize_->setValue(80);
+        reverbDamping_->setValue(60);
+        reverbMix_->setValue(45);
+        p.reverbSize.store(0.80f);
+        p.reverbDamping.store(0.60f);
+        p.reverbMix.store(0.45f);
+    }
+
+    updateEffectsUI();
 }
