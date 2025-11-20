@@ -247,7 +247,7 @@ private:
     QPushButton* deletePresetButton_;
     QPushButton* quickDistButton_;
     QPushButton* quickAcousticButton_;
-    QPushButton* quickAmbientButton_;
+    QPushButton* resetDefaultButton_;
     
     // State
     bool engineRunning_;
