@@ -1821,6 +1821,6 @@ void MainWindow::showEvent(QShowEvent* event)
     if (firstShow_) {
         firstShow_ = false;
         // Always maximize regardless of resolution preference
-        showMaximized();
+        showFullScreen();
     }
 }

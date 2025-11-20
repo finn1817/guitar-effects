@@ -105,6 +105,10 @@ ehthumbs_vista.db
 Desktop.ini
 $RECYCLE.BIN/
 
+# .txt scripts
+ai-instructions.txt
+layout-folder-file-structure.txt
+
 # Linux specific
 .directory
 .Trash-*
