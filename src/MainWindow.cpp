@@ -38,7 +38,9 @@ MainWindow::MainWindow(QWidget *parent)
     connect(mediaPlayer_, &QMediaPlayer::positionChanged, this, &MainWindow::updatePlaybackPosition);
     
     setWindowTitle("Guitar Effects App v1.0");
-    resize(1200, 800);
+    setMinimumSize(1280, 720);
+    resize(1920, 1080); // start at 1080p
+    applyDarkTheme();
 }
 
 MainWindow::~MainWindow()
@@ -248,6 +250,8 @@ void MainWindow::createEffectsPanel()
 {
     QTabWidget* effectsTab = new QTabWidget(this);
     effectsTab->setObjectName("effectsTab");
+    effectsTab->setMinimumHeight(240);
+    effectsTab->setMaximumHeight(300); // keep consistent height when fullscreen
     
     // Gate Tab
     QWidget* gateWidget = new QWidget();
@@ -1766,4 +1770,26 @@ void MainWindow::applyQuickPreset(const QString& name)
     }
 
     updateEffectsUI();
+}
+
+void MainWindow::applyDarkTheme()
+{
+    QString style = R"(QWidget { background-color: #1d1f21; color: #f0f0f0; }
+QGroupBox { border:1px solid #3a3d40; margin-top:4px; background-color:#2a2d30; border-radius:4px; }
+QToolButton { background:#2f3336; color:#f0f0f0; font-weight:bold; padding:6px; border:1px solid #3a3d40; border-radius:4px; }
+QToolButton:checked { background:#3d4145; }
+QPushButton { background:#3a3f44; color:#ffffff; border:1px solid #555; padding:6px 10px; border-radius:4px; }
+QPushButton:hover { background:#4a5056; }
+QLineEdit, QComboBox, QListWidget, QProgressBar { background:#262a2d; color:#f0f0f0; selection-background-color:#4978ff; }
+QSlider::groove:horizontal { height:6px; background:#3a3d40; border-radius:3px; }
+QSlider::handle:horizontal { background:#4978ff; width:14px; margin:-4px 0; border-radius:7px; }
+QTabWidget::pane { border:1px solid #3a3d40; }
+QTabBar::tab { background:#2f3336; color:#f0f0f0; padding:6px 12px; }
+QTabBar::tab:selected { background:#4978ff; }
+QScrollBar:vertical { background:#2a2d30; width:12px; }
+QScrollBar::handle:vertical { background:#4978ff; min-height:20px; border-radius:6px; }
+QProgressBar { border:1px solid #3a3d40; text-align:center; }
+QProgressBar::chunk { background-color:#4978ff; }
+)";
+    setStyleSheet(style);
 }

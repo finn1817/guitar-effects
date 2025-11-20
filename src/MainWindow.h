@@ -85,6 +85,7 @@ private slots:
 
 private:
     void setupUI();
+    void applyDarkTheme();
     void createAudioIOPanel();
     void createMetersPanel();
     void createEffectsPanel();
