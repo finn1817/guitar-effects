@@ -84,6 +84,13 @@ private:
     // Smoothing for meters
     float inputLevelSmooth_{0.0f};
     float outputLevelSmooth_{0.0f};
+
+    // Preallocated buffers to avoid per-callback allocations
+    std::vector<float> inputBuffer_;
+    std::vector<float> processedLeft_;
+    std::vector<float> processedRight_;
+    std::vector<float> outputMono_;
+    bool lowLatencyMode_{false};
 };
 
 #endif // AUDIOENGINE_H

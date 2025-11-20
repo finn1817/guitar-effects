@@ -108,22 +108,37 @@ bool AudioEngine::start(const std::string& inputDeviceId, const std::string& out
     recorder_->setSampleRate(sampleRate);
     
     ma_device_config config = ma_device_config_init(ma_device_type_duplex);
+    // Low latency tuning
+    lowLatencyMode_ = wasapiExclusive; // reuse checkbox as hint user wants lowest latency
+    if (lowLatencyMode_) {
+        config.performanceProfile = ma_performance_profile_low_latency;
+        // Use user-selected buffer size as the period; request 2 periods.
+        config.periodSizeInFrames = bufferSize;
+        config.periods = 2; // Fewer periods => lower latency, higher XRisk.
+        config.noPreSilencing = MA_TRUE; // Skip zeroing to save time.
+        config.noClip = MA_TRUE;        // Avoid extra clip stage.
+    }
     config.capture.format = ma_format_f32;
     config.capture.channels = 1; // Mono input
     config.playback.format = ma_format_f32;
     config.playback.channels = 2; // Stereo output
     config.sampleRate = sampleRate;
-    config.periodSizeInFrames = bufferSize;
+    if (!lowLatencyMode_) {
+        // Normal path still honors user buffer size but keeps defaults for periods.
+        config.periodSizeInFrames = bufferSize;
+    }
     config.dataCallback = audioCallback;
     config.pUserData = this;
     
 #ifdef _WIN32
     if (wasapiExclusive) {
-        // Enable tighter WASAPI behavior without attempting exclusive shareMode
         config.wasapi.noAutoConvertSRC = MA_TRUE;
         config.wasapi.noDefaultQualitySRC = MA_TRUE;
         config.wasapi.noHardwareOffloading = MA_TRUE;
-        // shareMode field removed in current miniaudio version; default shared mode used.
+        // Try enabling exclusive mode flag if available in header.
+#ifdef MA_WASAPI_FLAG_EXCLUSIVE_MODE
+        config.wasapi.flags |= MA_WASAPI_FLAG_EXCLUSIVE_MODE;
+#endif
     }
 #endif
     
@@ -138,6 +153,14 @@ bool AudioEngine::start(const std::string& inputDeviceId, const std::string& out
         return false;
     }
     
+    // Preallocate buffers based on the device's period size to avoid dynamic allocations each callback.
+    uint32_t allocFrames = device_.playback.internalPeriodSizeInFrames; // internal resolved size
+    if (allocFrames == 0) allocFrames = bufferSize; // fallback
+    inputBuffer_.resize(allocFrames);
+    processedLeft_.resize(allocFrames);
+    processedRight_.resize(allocFrames);
+    outputMono_.resize(allocFrames);
+
     running_.store(true);
     return true;
 }
@@ -161,46 +184,37 @@ void AudioEngine::audioCallback(ma_device* pDevice, void* pOutput, const void* p
 
 void AudioEngine::processAudio(float* output, const float* input, uint32_t frameCount)
 {
-    // Clear output buffer
-    std::memset(output, 0, frameCount * 2 * sizeof(float));
-    
     // Apply input gain and meter
-    std::vector<float> inputBuffer(frameCount);
     for (uint32_t i = 0; i < frameCount; ++i) {
-        inputBuffer[i] = input[i] * inputGain_.load();
+        inputBuffer_[i] = input[i] * inputGain_.load();
     }
-    updateMeters(inputBuffer.data(), frameCount, inputLevel_, inputPeak_);
-    
-    // Process through DSP chain
-    std::vector<float> processedLeft(frameCount);
-    std::vector<float> processedRight(frameCount);
-    dspChain_->process(inputBuffer.data(), processedLeft.data(), processedRight.data(), frameCount);
-    
-    // Mix in looper
-    looper_->process(processedLeft.data(), processedRight.data(), frameCount);
-    
-    // Apply output gain
+    updateMeters(inputBuffer_.data(), frameCount, inputLevel_, inputPeak_);
+
+    // DSP processing
+    dspChain_->process(inputBuffer_.data(), processedLeft_.data(), processedRight_.data(), frameCount);
+    looper_->process(processedLeft_.data(), processedRight_.data(), frameCount);
+
+    // Output gain
     float outGain = outputGain_.load();
     for (uint32_t i = 0; i < frameCount; ++i) {
-        processedLeft[i] *= outGain;
-        processedRight[i] *= outGain;
+        processedLeft_[i] *= outGain;
+        processedRight_[i] *= outGain;
     }
-    
-    // Send to recorder
-    recorder_->processAudio(processedLeft.data(), processedRight.data(), frameCount);
-    
-    // Interleave to output
+
+    // Recorder
+    recorder_->processAudio(processedLeft_.data(), processedRight_.data(), frameCount);
+
+    // Interleave
     for (uint32_t i = 0; i < frameCount; ++i) {
-        output[i * 2] = processedLeft[i];
-        output[i * 2 + 1] = processedRight[i];
+        output[i * 2] = processedLeft_[i];
+        output[i * 2 + 1] = processedRight_[i];
     }
-    
-    // Meter output (average L+R)
-    std::vector<float> outputMono(frameCount);
+
+    // Meter output
     for (uint32_t i = 0; i < frameCount; ++i) {
-        outputMono[i] = (processedLeft[i] + processedRight[i]) * 0.5f;
+        outputMono_[i] = (processedLeft_[i] + processedRight_[i]) * 0.5f;
     }
-    updateMeters(outputMono.data(), frameCount, outputLevel_, outputPeak_);
+    updateMeters(outputMono_.data(), frameCount, outputLevel_, outputPeak_);
 }
 
 void AudioEngine::updateMeters(const float* buffer, uint32_t frameCount,
