@@ -1689,49 +1689,52 @@ void MainWindow::applyQuickPreset(const QString& name)
     auto& p = audioEngine_->getDSPChain()->getParams();
 
     if (name == "richfuzz") {
-        // Cleaner rich fuzz: moderate drive, strong pre-gain texture, mild scoop, subtle ambience
+        // Light gain: minimal distortion, no fuzz, modest EQ lift, subtle ambience.
         p.driveBypass.store(false); driveBypass_->setChecked(false);
-        driveAmount_->setValue(55); preGainSlider_->setValue(65);
-        p.driveAmount.store(0.55f); p.preGain.store(0.65f);
+        driveAmount_->setValue(30); preGainSlider_->setValue(40);
+        p.driveAmount.store(0.30f); p.preGain.store(0.40f);
+        // Enable gate gently to suppress noise without chopping sustain.
+        p.gateBypass.store(false); gateBypass_->setChecked(false);
+        gateThreshold_->setValue(-55); // moderate threshold
+        p.gateThreshold.store(-55.0f);
+        // Subtle EQ: tiny low/mid lift, slight high/ presence air.
         p.eqBypass.store(false); eqBypass_->setChecked(false);
-        lowGain_->setValue(3); midGain_->setValue(-3); highGain_->setValue(4); presenceGain_->setValue(5);
-        p.lowGain.store(3); p.midGain.store(-3); p.highGain.store(4); p.presenceGain.store(5);
+        lowGain_->setValue(1); midGain_->setValue(1); highGain_->setValue(2); presenceGain_->setValue(2);
+        p.lowGain.store(1); p.midGain.store(1); p.highGain.store(2); p.presenceGain.store(2);
+        // Light compression for consistency.
         p.compBypass.store(false); compBypass_->setChecked(false);
-        compThreshold_->setValue(55); // ~ -18 dB
-        compRatio_->setValue(55);     // ~5.9:1
-        p.compThreshold.store(-18.0f); p.compRatio.store(5.9f);
-        p.delayBypass.store(false); delayBypass_->setChecked(false);
-        delayTime_->setValue(140); delayFeedback_->setValue(20); delayMix_->setValue(12);
-        p.delayTime.store(0.140f); p.delayFeedback.store(0.20f); p.delayMix.store(0.12f);
+        compThreshold_->setValue(-18); // direct dB value
+        compRatio_->setValue(25);      // ~3.25:1 mapped later
+        p.compThreshold.store(-18.0f); p.compRatio.store( (1.0f + (25/100.0f)*9.0f) );
+        // Minimal delay & small room reverb, optional subtle tail.
+        p.delayBypass.store(true); delayBypass_->setChecked(true); // off for clarity
         p.reverbBypass.store(false); reverbBypass_->setChecked(false);
-        reverbSize_->setValue(35); reverbDamping_->setValue(45); reverbMix_->setValue(15);
-        p.reverbSize.store(0.35f); p.reverbDamping.store(0.45f); p.reverbMix.store(0.15f);
+        reverbSize_->setValue(28); reverbDamping_->setValue(40); reverbMix_->setValue(10);
+        p.reverbSize.store(0.28f); p.reverbDamping.store(0.40f); p.reverbMix.store(0.10f);
     } else if (name == "acoustic") {
         // Acoustic clean: low drive, gentle EQ boost highs, moderate presence, light compression, subtle reverb
-        p.driveBypass.store(false);
-        driveBypass_->setChecked(false);
-        driveAmount_->setValue(8);
-        preGainSlider_->setValue(15);
-        p.driveAmount.store(0.08f);
-        p.preGain.store(0.15f);
-        p.eqBypass.store(false);
-        eqBypass_->setChecked(false);
-        lowGain_->setValue(1);
-        midGain_->setValue(0);
-        highGain_->setValue(4);
-        presenceGain_->setValue(3);
-        p.lowGain.store(1); p.midGain.store(0); p.highGain.store(4); p.presenceGain.store(3);
-        p.compBypass.store(false);
-        compBypass_->setChecked(false);
-        compThreshold_->setValue(48); // ~ -20.8 dB
-        compRatio_->setValue(28); // ~3.5:1
-        p.compThreshold.store(-20.8f); p.compRatio.store(3.5f);
-        p.delayBypass.store(true);
-        delayBypass_->setChecked(true);
-        p.reverbBypass.store(false);
-        reverbBypass_->setChecked(false);
-        reverbSize_->setValue(40); reverbDamping_->setValue(50); reverbMix_->setValue(18);
-        p.reverbSize.store(0.40f); p.reverbDamping.store(0.50f); p.reverbMix.store(0.18f);
+        // Absolute clean: bypass drive entirely
+        p.driveBypass.store(true); driveBypass_->setChecked(true);
+        driveAmount_->setValue(0); preGainSlider_->setValue(0);
+        p.driveAmount.store(0.0f); p.preGain.store(0.0f);
+        // Gate very gentle to avoid hum; threshold a bit lower than light gain preset.
+        p.gateBypass.store(false); gateBypass_->setChecked(false);
+        gateThreshold_->setValue(-60); p.gateThreshold.store(-60.0f);
+        // Pure EQ: minimal shaping, tiny high sparkle.
+        p.eqBypass.store(false); eqBypass_->setChecked(false);
+        lowGain_->setValue(0); midGain_->setValue(0); highGain_->setValue(2); presenceGain_->setValue(1);
+        p.lowGain.store(0); p.midGain.store(0); p.highGain.store(2); p.presenceGain.store(1);
+        // Light compression for leveling.
+        p.compBypass.store(false); compBypass_->setChecked(false);
+        compThreshold_->setValue(-24); compRatio_->setValue(20); // ~2.8:1
+        p.compThreshold.store(-24.0f); p.compRatio.store( (1.0f + (20/100.0f)*9.0f) );
+        // No delay; minimal short reverb for space.
+        p.delayBypass.store(true); delayBypass_->setChecked(true);
+        p.reverbBypass.store(false); reverbBypass_->setChecked(false);
+        reverbSize_->setValue(25); reverbDamping_->setValue(45); reverbMix_->setValue(8);
+        p.reverbSize.store(0.25f); p.reverbDamping.store(0.45f); p.reverbMix.store(0.08f);
+        // Ensure pitch is off for pure acoustic
+        p.pitchBypass.store(true); pitchBypass_->setChecked(true); p.pitchMode.store(0);
     } else if (name == "ambient") {
         // Ambient space: moderate drive, big delay + reverb, scooped lows, airy highs, strong presence
         p.driveBypass.store(false);
