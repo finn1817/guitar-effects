@@ -201,6 +201,9 @@ private:
     QLabel* looperLevelLabel_;
     QLabel* looperStatusLabel_;
     QProgressBar* looperPositionBar_;
+    QHBoxLayout* loopButtonsLayout_ { nullptr }; // dynamic loop slot buttons
+    QPushButton* loopRemoveAllButton_ { nullptr }; 
+    std::vector<QPushButton*> loopSlotButtons_;
     
     // Recorder
     QPushButton* recordStartButton_;
@@ -235,6 +238,12 @@ private:
     bool isRecording_;
     QString currentClipName_;
     int currentPitchMode_; // 0=off, 1=down, 2=up
+
+    // Helpers for loop UI
+    void addLoopSlotButton(int index);
+    void refreshLoopButtonsStyles();
+    void onLoopSlotClicked(int index);
+    void onLoopRemoveAll();
 };
 
 #endif // MAINWINDOW_H

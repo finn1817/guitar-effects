@@ -590,6 +590,15 @@ void MainWindow::createLooperPanel()
     looperPositionBar_->setRange(0, 100);
     looperPositionBar_->setValue(0);
     layout->addWidget(looperPositionBar_);
+
+    // Multi-loop slot buttons
+    loopButtonsLayout_ = new QHBoxLayout();
+    loopButtonsLayout_->setSpacing(4);
+    loopRemoveAllButton_ = new QPushButton("Remove All");
+    loopRemoveAllButton_->setEnabled(false);
+    loopButtonsLayout_->addWidget(loopRemoveAllButton_);
+    layout->addLayout(loopButtonsLayout_);
+    connect(loopRemoveAllButton_, &QPushButton::clicked, this, &MainWindow::onLoopRemoveAll);
     
     connect(looperRecordButton_, &QPushButton::clicked, this, &MainWindow::onLooperRecord);
     connect(looperPlayButton_, &QPushButton::clicked, this, &MainWindow::onLooperPlayStop);
@@ -854,6 +863,12 @@ void MainWindow::onLooperRecord()
         audioEngine_->getLooper()->startRecording();
     } else if (state == LooperState::Recording) {
         audioEngine_->getLooper()->stopRecording();
+        int idx = audioEngine_->getLooper()->addRecordedLoop();
+        if (idx >= 0) {
+            addLoopSlotButton(idx);
+            loopRemoveAllButton_->setEnabled(true);
+            refreshLoopButtonsStyles();
+        }
     }
 }
 
@@ -864,8 +879,10 @@ void MainWindow::onLooperPlayStop()
     auto state = audioEngine_->getLooper()->getState();
     if (state == LooperState::Off) {
         audioEngine_->getLooper()->startPlaying();
+        refreshLoopButtonsStyles();
     } else {
         audioEngine_->getLooper()->stopPlaying();
+        refreshLoopButtonsStyles();
     }
 }
 
@@ -1184,6 +1201,10 @@ void MainWindow::updateLooperStatus()
     }
     
     looperStatusLabel_->setText(statusText);
+    int slots = audioEngine_->getLooper()->getSlotCount();
+    if (slots > 0) {
+        looperStatusLabel_->setText(looperStatusLabel_->text() + QString(" | Slots: %1").arg(slots));
+    }
 }
 
 void MainWindow::updateRecorderStatus()
@@ -1431,4 +1452,43 @@ float MainWindow::linearTodB(float linear)
 {
     if (linear < 0.00001f) return -100.0f;
     return 20.0f * std::log10(linear);
+}
+
+// ===== Multi-loop helpers =====
+void MainWindow::addLoopSlotButton(int index)
+{
+    QPushButton* btn = new QPushButton(QString::number(index + 1));
+    btn->setCheckable(true);
+    btn->setChecked(true);
+    btn->setMinimumWidth(32);
+    btn->setStyleSheet("QPushButton { padding:4px; } QPushButton:checked { background:#1e6efb; color:white; }");
+    loopButtonsLayout_->addWidget(btn);
+    loopSlotButtons_.push_back(btn);
+    connect(btn, &QPushButton::clicked, this, [this, index]() { onLoopSlotClicked(index); });
+}
+
+void MainWindow::refreshLoopButtonsStyles()
+{
+    for (int i = 0; i < (int)loopSlotButtons_.size(); ++i) {
+        bool sel = audioEngine_->getLooper()->isSlotSelected(i);
+        loopSlotButtons_[i]->setChecked(sel);
+    }
+}
+
+void MainWindow::onLoopSlotClicked(int index)
+{
+    audioEngine_->getLooper()->toggleSlotSelection(index);
+    refreshLoopButtonsStyles();
+}
+
+void MainWindow::onLoopRemoveAll()
+{
+    audioEngine_->getLooper()->clearAllSlots();
+    for (auto* b : loopSlotButtons_) {
+        loopButtonsLayout_->removeWidget(b);
+        b->deleteLater();
+    }
+    loopSlotButtons_.clear();
+    loopRemoveAllButton_->setEnabled(false);
+    refreshLoopButtonsStyles();
 }

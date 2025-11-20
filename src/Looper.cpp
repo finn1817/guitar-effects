@@ -22,42 +22,44 @@ void Looper::process(float* bufferL, float* bufferR, int numSamples)
     LooperState state = state_.load();
     float level = loopLevel_.load();
     
-    if (state == LooperState::Off) {
-        return;
-    }
-    
     std::lock_guard<std::mutex> lock(bufferMutex_);
-    
-    for (int i = 0; i < numSamples; ++i) {
-        if (state == LooperState::Recording) {
-            // First pass - record and set loop length
-            if (position_ < maxLengthSamples_) {
-                loopBufferL_[position_] = bufferL[i];
-                loopBufferR_[position_] = bufferR[i];
-                position_++;
+
+    // Single-loop recording / overdub / playback (legacy primary loop)
+    if (state != LooperState::Off) {
+        for (int i = 0; i < numSamples; ++i) {
+            if (state == LooperState::Recording) {
+                if (position_ < maxLengthSamples_) {
+                    loopBufferL_[position_] = bufferL[i];
+                    loopBufferR_[position_] = bufferR[i];
+                    position_++;
+                }
+            } else if (state == LooperState::Playing) {
+                if (loopLength_ > 0) {
+                    bufferL[i] += loopBufferL_[position_] * level;
+                    bufferR[i] += loopBufferR_[position_] * level;
+                    position_ = (position_ + 1) % loopLength_;
+                }
+            } else if (state == LooperState::Overdubbing) {
+                if (loopLength_ > 0) {
+                    bufferL[i] += loopBufferL_[position_] * level;
+                    bufferR[i] += loopBufferR_[position_] * level;
+                    loopBufferL_[position_] = loopBufferL_[position_] * 0.7f + bufferL[i] * 0.3f;
+                    loopBufferR_[position_] = loopBufferR_[position_] * 0.7f + bufferR[i] * 0.3f;
+                    position_ = (position_ + 1) % loopLength_;
+                }
             }
         }
-        else if (state == LooperState::Playing) {
-            // Playback only
-            if (loopLength_ > 0) {
-                bufferL[i] += loopBufferL_[position_] * level;
-                bufferR[i] += loopBufferR_[position_] * level;
-                
-                position_ = (position_ + 1) % loopLength_;
-            }
-        }
-        else if (state == LooperState::Overdubbing) {
-            // Mix new audio with existing loop
-            if (loopLength_ > 0) {
-                // Add existing loop to output
-                bufferL[i] += loopBufferL_[position_] * level;
-                bufferR[i] += loopBufferR_[position_] * level;
-                
-                // Overdub new audio into loop (mix)
-                loopBufferL_[position_] = loopBufferL_[position_] * 0.7f + bufferL[i] * 0.3f;
-                loopBufferR_[position_] = loopBufferR_[position_] * 0.7f + bufferR[i] * 0.3f;
-                
-                position_ = (position_ + 1) % loopLength_;
+    }
+
+    // Multi-slot playback/mix
+    if (!slots_.empty()) {
+        for (int i = 0; i < numSamples; ++i) {
+            for (auto &slot : slots_) {
+                if (slot.active && slot.length > 0) {
+                    bufferL[i] += slot.left[slot.position] * level;
+                    bufferR[i] += slot.right[slot.position] * level;
+                    slot.position = (slot.position + 1) % slot.length;
+                }
             }
         }
     }
@@ -84,25 +86,22 @@ void Looper::stopRecording()
     loopLength_ = position_;
     position_ = 0;
     
-    if (loopLength_ > 0) {
-        state_.store(LooperState::Playing);
-    } else {
-        state_.store(LooperState::Off);
-    }
+    state_.store(LooperState::Off); // We'll copy into slot explicitly via addRecordedLoop()
 }
 
 void Looper::startPlaying()
 {
-    if (loopLength_ > 0) {
-        position_ = 0;
-        state_.store(LooperState::Playing);
-    }
+    // Legacy single loop play
+    if (loopLength_ > 0) { position_ = 0; state_.store(LooperState::Playing); }
+    // Also start selected slots
+    playSelectedSlots();
 }
 
 void Looper::stopPlaying()
 {
     state_.store(LooperState::Off);
     position_ = 0;
+    stopSlots();
 }
 
 void Looper::startOverdub()
@@ -131,6 +130,56 @@ void Looper::clear()
     loopLength_ = 0;
     position_ = 0;
     state_.store(LooperState::Off);
+}
+
+int Looper::addRecordedLoop()
+{
+    std::lock_guard<std::mutex> lock(bufferMutex_);
+    if (loopLength_ <= 0) return -1;
+    LoopSlot slot;
+    slot.length = loopLength_;
+    slot.left.assign(loopBufferL_.begin(), loopBufferL_.begin() + loopLength_);
+    slot.right.assign(loopBufferR_.begin(), loopBufferR_.begin() + loopLength_);
+    slot.selected = true; // auto-select
+    slots_.push_back(std::move(slot));
+    return (int)slots_.size() - 1;
+}
+
+void Looper::toggleSlotSelection(int index)
+{
+    std::lock_guard<std::mutex> lock(bufferMutex_);
+    if (index < 0 || index >= (int)slots_.size()) return;
+    slots_[index].selected = !slots_[index].selected;
+}
+
+void Looper::playSelectedSlots()
+{
+    for (auto &slot : slots_) {
+        if (slot.selected) {
+            slot.position = 0;
+            slot.active = true;
+        }
+    }
+}
+
+void Looper::stopSlots()
+{
+    for (auto &slot : slots_) {
+        slot.active = false;
+        slot.position = 0;
+    }
+}
+
+void Looper::clearAllSlots()
+{
+    std::lock_guard<std::mutex> lock(bufferMutex_);
+    slots_.clear();
+}
+
+bool Looper::isSlotSelected(int index) const
+{
+    if (index < 0 || index >= (int)slots_.size()) return false;
+    return slots_[index].selected;
 }
 
 void Looper::setLoopLevel(float level)

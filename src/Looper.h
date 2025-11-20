@@ -27,6 +27,15 @@ public:
     void startOverdub();
     void stopOverdub();
     void clear();
+
+    // Multi-loop management
+    int addRecordedLoop();              // Copies last recorded loop into slots, returns index
+    void toggleSlotSelection(int index);
+    void playSelectedSlots();
+    void stopSlots();
+    void clearAllSlots();
+    int getSlotCount() const { return (int)slots_.size(); }
+    bool isSlotSelected(int index) const;
     
     // Parameters
     void setLoopLevel(float level);
@@ -54,6 +63,16 @@ private:
     int position_{0};
     
     std::mutex bufferMutex_;
+
+    struct LoopSlot {
+        std::vector<float> left;
+        std::vector<float> right;
+        int length{0};
+        int position{0};
+        bool selected{false};
+        bool active{false};
+    };
+    std::vector<LoopSlot> slots_;
 };
 
 #endif // LOOPER_H
