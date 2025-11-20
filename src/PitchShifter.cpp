@@ -34,8 +34,32 @@ void PitchShifter::process(const float* input, float* outputL, float* outputR,
                            int numSamples, float semitones)
 {
     float pitchRatio = std::pow(2.0f, semitones / 12.0f);
-    // Simple dry mix ratio to preserve body and mitigate hollow sound.
-    const float dryMix = 0.15f; // retain some original
+
+    // Fast path for +/-1 semitone using simple resampling (lower latency, fewer artifacts).
+    if (std::fabs(semitones) <= 1.0f) {
+        static float readPos = 0.0f;
+        float rate = pitchRatio; // playback rate
+        for (int i = 0; i < numSamples; ++i) {
+            // Read from a small circular buffer (reuse inputBuffer_) for continuity
+            inputBuffer_[inputPos_] = input[i];
+            inputPos_ = (inputPos_ + 1) % inputBuffer_.size();
+            // Wrap readPos inside buffer
+            if (readPos >= inputBuffer_.size()) readPos -= (float)inputBuffer_.size();
+            // Fractional read with linear interpolation
+            int i0 = (int)readPos;
+            int i1 = (i0 + 1) % inputBuffer_.size();
+            float frac = readPos - i0;
+            float sample = inputBuffer_[i0] + (inputBuffer_[i1] - inputBuffer_[i0]) * frac;
+            readPos += rate; // advance according to pitch ratio
+            // Mix some dry to preserve timbre
+            float out = sample * 0.85f + input[i] * 0.15f;
+            outputL[i] = out;
+            outputR[i] = out;
+        }
+        return;
+    }
+    // Legacy phase vocoder path (higher latency, used for >1 semitone future expansion)
+    const float dryMix = 0.15f;
     const float wetMix = 1.0f - dryMix;
     float rmsInAccum = 0.0f;
     int rmsCount = 0;
@@ -80,7 +104,7 @@ void PitchShifter::process(const float* input, float* outputL, float* outputR,
         overlapL_[FFT_SIZE - 1] = 0.0f;
         overlapR_[FFT_SIZE - 1] = 0.0f;
     }
-    // Post normalization: scale wet output so RMS roughly matches input RMS.
+    // Post normalization: scale output so RMS roughly matches input RMS.
     if (rmsCount > 0) {
         float rmsIn = std::sqrt(rmsInAccum / rmsCount);
         float rmsOutAccum = 0.0f;

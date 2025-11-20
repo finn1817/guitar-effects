@@ -944,8 +944,8 @@ void MainWindow::onEffectParameterChanged()
     
     auto& params = audioEngine_->getDSPChain()->getParams();
     
-    // Gate (0-100 -> -80..0 dB)
-    float gateDb = -80.0f + (gateThreshold_->value() / 100.0f) * 80.0f;
+    // Gate threshold slider already in -80..0 range; use raw value
+    float gateDb = gateThreshold_->value();
     params.gateThreshold.store(gateDb);
     gateThresholdLabel_->setText(QString::number(gateDb, 'f', 0) + " dB");
     
@@ -977,8 +977,8 @@ void MainWindow::onEffectParameterChanged()
     if (presenceGain_) presenceGainLabel_->setText(QString::number(presenceGain_->value()) + " dB");
     presenceGainLabel_->setText(QString::number(presenceGain_->value()) + " dB");
     
-    // Compressor
-    float compDb = -40.0f + (compThreshold_->value() / 100.0f) * 40.0f;
+    // Compressor threshold slider is already -40..0 dB
+    float compDb = compThreshold_->value();
     float compRatioVal = 1.0f + (compRatio_->value() / 100.0f) * 9.0f;
     params.compThreshold.store(compDb);
     params.compRatio.store(compRatioVal);
@@ -1400,9 +1400,8 @@ void MainWindow::updateEffectsUI()
     
     // Update all UI elements from parameters
     gateBypass_->setChecked(params.gateBypass.load());
-    // Inverse map gate threshold (-80..0 dB) back to 0..100 slider
-    int gatePct = static_cast<int>(((params.gateThreshold.load() + 80.0f) / 80.0f) * 100.0f);
-    gateThreshold_->setValue(std::max(0, std::min(100, gatePct)));
+    // Gate threshold slider directly represents dB value
+    gateThreshold_->setValue(static_cast<int>(params.gateThreshold.load()));
     
     driveBypass_->setChecked(params.driveBypass.load());
     driveAmount_->setValue(params.driveAmount.load() * 100);
@@ -1420,8 +1419,7 @@ void MainWindow::updateEffectsUI()
     if (presenceGain_) presenceGain_->setValue(params.presenceGain.load());
     
     compBypass_->setChecked(params.compBypass.load());
-    int compTPct = static_cast<int>(((params.compThreshold.load() + 40.0f) / 40.0f) * 100.0f);
-    compThreshold_->setValue(std::max(0, std::min(100, compTPct)));
+    compThreshold_->setValue(static_cast<int>(params.compThreshold.load()));
     int compRatioPct = static_cast<int>(((params.compRatio.load() - 1.0f) / 9.0f) * 100.0f);
     compRatio_->setValue(std::max(0, std::min(100, compRatioPct)));
     int preGainPct = static_cast<int>(params.preGain.load() * 100.0f);
