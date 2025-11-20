@@ -114,9 +114,8 @@ bool AudioEngine::start(const std::string& inputDeviceId, const std::string& out
         config.performanceProfile = ma_performance_profile_low_latency;
         // Use user-selected buffer size as the period; request 2 periods.
         config.periodSizeInFrames = bufferSize;
-        config.periods = 2; // Fewer periods => lower latency, higher XRisk.
-        config.noPreSilencing = MA_TRUE; // Skip zeroing to save time.
-        config.noClip = MA_TRUE;        // Avoid extra clip stage.
+        config.periods = 2; // Fewer periods => lower latency, higher risk of xruns.
+        // Fields noPreSilencing / noClip are not present in this bundled miniaudio version; removed.
     }
     config.capture.format = ma_format_f32;
     config.capture.channels = 1; // Mono input
