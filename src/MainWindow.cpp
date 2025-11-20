@@ -1087,12 +1087,24 @@ void MainWindow::onDeleteClip()
         QMessageBox::Yes | QMessageBox::No);
     
     if (reply == QMessageBox::Yes) {
+        // Ensure playback stopped and file handle released before deletion
+        if (mediaPlayer_->playbackState() != QMediaPlayer::StoppedState) {
+            mediaPlayer_->stop();
+            mediaPlayer_->setSource(QUrl()); // release file handle
+        }
+        // Attempt deletion
         if (clipManager_->deleteClip(clipName)) {
             clipList_->clear();
             clipList_->addItems(clipManager_->getClipList());
             QMessageBox::information(this, "Success", "Clip deleted successfully!");
         } else {
-            QMessageBox::critical(this, "Error", "Failed to delete clip!");
+            // Provide more diagnostic info
+            QString path = clipManager_->getClipsDirectory() + "/" + clipName + ".wav";
+            QFileInfo fi(path);
+            QString reason;
+            if (!fi.exists()) reason = "File does not exist at expected path.";
+            else reason = "File may be locked (in use) or permission denied.";
+            QMessageBox::critical(this, "Error", QString("Failed to delete clip!\n%1\nPath: %2").arg(reason, path));
         }
     }
 }
