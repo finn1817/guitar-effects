@@ -154,6 +154,9 @@ void MainWindow::createAudioIOPanel()
     refreshDevicesButton_ = new QPushButton("Refresh Devices");
     refreshDevicesButton_->setToolTip("Re-enumerate audio input/output devices");
     layout->addWidget(refreshDevicesButton_, 0, 3);
+    deviceDetailsButton_ = new QPushButton("Device Details");
+    deviceDetailsButton_->setToolTip("Show enumerated devices and selections");
+    layout->addWidget(deviceDetailsButton_, 0, 4);
     
     layout->addWidget(new QLabel("Output Device:"), 1, 0);
     outputDeviceCombo_ = new QComboBox();
@@ -193,6 +196,7 @@ void MainWindow::createAudioIOPanel()
     connect(startButton_, &QPushButton::clicked, this, &MainWindow::onStartEngine);
     connect(stopButton_, &QPushButton::clicked, this, &MainWindow::onStopEngine);
     connect(refreshDevicesButton_, &QPushButton::clicked, this, &MainWindow::onRefreshDevices);
+    connect(deviceDetailsButton_, &QPushButton::clicked, this, &MainWindow::onShowDeviceDetails);
     
     // Gain controls
     layout->addWidget(new QLabel("Input Gain:"), 5, 0);
@@ -1856,4 +1860,35 @@ void MainWindow::showEvent(QShowEvent* event)
         // Always maximize regardless of resolution preference
         showFullScreen();
     }
+}
+
+void MainWindow::onShowDeviceDetails()
+{
+    auto inputDevices = audioEngine_->getInputDevices();
+    auto outputDevices = audioEngine_->getOutputDevices();
+    QString msg;
+    msg += "Input Devices:\n";
+    for (int i = 0; i < inputDevices.size(); ++i) {
+        const auto &d = inputDevices[i];
+        bool isSel = (inputDeviceCombo_->currentIndex() == i);
+        msg += QString("[%1] %2  id=%3  %4%5\n")
+            .arg(i)
+            .arg(QString::fromStdString(d.name))
+            .arg(QString::fromStdString(d.id))
+            .arg(d.isDefault ? "(default) " : "")
+            .arg(isSel ? "(selected)" : "");
+    }
+    msg += "\nOutput Devices:\n";
+    for (int i = 0; i < outputDevices.size(); ++i) {
+        const auto &d = outputDevices[i];
+        bool isSel = (outputDeviceCombo_->currentIndex() == i);
+        msg += QString("[%1] %2  id=%3  %4%5\n")
+            .arg(i)
+            .arg(QString::fromStdString(d.name))
+            .arg(QString::fromStdString(d.id))
+            .arg(d.isDefault ? "(default) " : "")
+            .arg(isSel ? "(selected)" : "");
+    }
+    msg += "\nNote: Channel counts are not shown; devices are identified by index strings passed to miniaudio.\n";
+    QMessageBox::information(this, "Device Details", msg);
 }

@@ -44,6 +44,7 @@ private slots:
     void onOutputGainChanged(int value);
     void onResetPeaks();
     void onRefreshDevices();
+    void onShowDeviceDetails();
     
     // Effects
     void onEffectBypassChanged();
@@ -128,6 +129,7 @@ private:
     QPushButton* startButton_;
     QPushButton* stopButton_;
     QPushButton* refreshDevicesButton_;
+    QPushButton* deviceDetailsButton_;
     QSlider* inputGainSlider_;
     QSlider* outputGainSlider_;
     QLabel* inputGainLabel_;
