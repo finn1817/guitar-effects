@@ -1,6 +1,11 @@
 #include "PitchShifter.h"
 #include <algorithm>
 #include <cstring>
+#include <cmath>
+
+namespace {
+    constexpr float PI = 3.14159265358979323846f;
+}
 
 PitchShifter::PitchShifter()
 {
@@ -16,7 +21,7 @@ PitchShifter::PitchShifter()
     
     // Hann window
     for (int i = 0; i < FFT_SIZE; ++i) {
-        window_[i] = 0.5f * (1.0f - std::cos(2.0f * M_PI * i / (FFT_SIZE - 1)));
+        window_[i] = 0.5f * (1.0f - std::cos(2.0f * PI * i / (FFT_SIZE - 1)));
     }
 }
 
@@ -88,7 +93,7 @@ void PitchShifter::processFrame(const float* input, float* outputL, float* outpu
     // Phase vocoder processing
     std::vector<std::complex<float>> shiftedFFT(frameSize);
     const float freqPerBin = static_cast<float>(sampleRate_) / frameSize;
-    const float expectedPhaseAdvance = 2.0f * M_PI * HOP_SIZE / frameSize;
+    const float expectedPhaseAdvance = 2.0f * PI * HOP_SIZE / frameSize;
     
     for (int i = 0; i < frameSize / 2 + 1; ++i) {
         // Get magnitude and phase
@@ -103,13 +108,13 @@ void PitchShifter::processFrame(const float* input, float* outputL, float* outpu
         phaseDiff -= i * expectedPhaseAdvance;
         
         // Map to -PI to PI
-        int qpd = static_cast<int>(phaseDiff / M_PI);
+        int qpd = static_cast<int>(phaseDiff / PI);
         if (qpd >= 0) qpd += qpd & 1;
         else qpd -= qpd & 1;
-        phaseDiff -= M_PI * qpd;
+        phaseDiff -= PI * qpd;
         
         // Get deviation from bin frequency
-        float deviation = phaseDiff * frameSize / (HOP_SIZE * 2.0f * M_PI);
+        float deviation = phaseDiff * frameSize / (HOP_SIZE * 2.0f * PI);
         
         // Compute the true frequency
         float trueFreq = (i + deviation) * freqPerBin;
@@ -177,7 +182,7 @@ void PitchShifter::fft(std::complex<float>* data, int size, bool inverse)
         int m = 1 << s;
         int m2 = m / 2;
         std::complex<float> w(1.0f, 0.0f);
-        float angle = (inverse ? 1.0f : -1.0f) * M_PI / m2;
+        float angle = (inverse ? 1.0f : -1.0f) * PI / m2;
         std::complex<float> wm(std::cos(angle), std::sin(angle));
         
         for (int k = 0; k < size; k += m) {

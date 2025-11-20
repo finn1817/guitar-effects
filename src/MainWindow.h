@@ -5,6 +5,7 @@
 #include <QWidget>
 #include <QTimer>
 #include <QPushButton>
+#include <QToolButton>
 #include <QSlider>
 #include <QLabel>
 #include <QComboBox>
@@ -91,6 +92,7 @@ private:
     void createRecorderPanel();
     void createPlaybackPanel();
     void createPresetsPanel();
+    QWidget* makeCollapsible(QGroupBox* box);
     
     // Preset functions
     void savePresetToFile(const QString& name);

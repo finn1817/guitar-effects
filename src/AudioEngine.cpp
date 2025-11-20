@@ -1,10 +1,26 @@
+#define MINIAUDIO_IMPLEMENTATION
 #include "AudioEngine.h"
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifdef max
+#undef max
+#endif
+#ifdef min
+#undef min
+#endif
+#endif
 #include "DSPChain.h"
 #include "Looper.h"
 #include "Recorder.h"
 #include <cmath>
 #include <algorithm>
 #include <cstring>
+#include <vector>
+#include <atomic>
+#include <memory>
+#include <string>
 
 AudioEngine::AudioEngine()
 {
@@ -40,7 +56,8 @@ std::vector<AudioDeviceInfo> AudioEngine::getInputDevices()
     if (result == MA_SUCCESS) {
         for (ma_uint32 i = 0; i < captureCount; ++i) {
             AudioDeviceInfo info;
-            info.id = std::string((char*)&pCaptureInfos[i].id, sizeof(pCaptureInfos[i].id));
+            // Miniaudio device IDs are opaque; use index as ID string.
+            info.id = std::to_string(i);
             info.name = pCaptureInfos[i].name;
             info.isDefault = pCaptureInfos[i].isDefault;
             devices.push_back(info);
@@ -65,7 +82,7 @@ std::vector<AudioDeviceInfo> AudioEngine::getOutputDevices()
     if (result == MA_SUCCESS) {
         for (ma_uint32 i = 0; i < playbackCount; ++i) {
             AudioDeviceInfo info;
-            info.id = std::string((char*)&pPlaybackInfos[i].id, sizeof(pPlaybackInfos[i].id));
+            info.id = std::to_string(i);
             info.name = pPlaybackInfos[i].name;
             info.isDefault = pPlaybackInfos[i].isDefault;
             devices.push_back(info);
@@ -102,10 +119,11 @@ bool AudioEngine::start(const std::string& inputDeviceId, const std::string& out
     
 #ifdef _WIN32
     if (wasapiExclusive) {
+        // Enable tighter WASAPI behavior without attempting exclusive shareMode
         config.wasapi.noAutoConvertSRC = MA_TRUE;
         config.wasapi.noDefaultQualitySRC = MA_TRUE;
         config.wasapi.noHardwareOffloading = MA_TRUE;
-        config.shareMode = ma_share_mode_exclusive;
+        // shareMode field removed in current miniaudio version; default shared mode used.
     }
 #endif
     

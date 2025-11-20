@@ -1,6 +1,11 @@
 #include "DSPChain.h"
 #include <algorithm>
 #include <cstring>
+#include <cmath>
+
+namespace {
+    constexpr float PI = 3.14159265358979323846f;
+}
 
 DSPChain::DSPChain()
 {
@@ -175,7 +180,7 @@ float DSPChain::processBiquad(float input, float* z1, float* z2,
 void DSPChain::calculateBiquadCoeffs(float freq, float q, float gain, bool isShelf,
                                      float& b0, float& b1, float& b2, float& a1, float& a2)
 {
-    float w0 = 2.0f * M_PI * freq / sampleRate_;
+    float w0 = 2.0f * PI * freq / sampleRate_;
     float cosw0 = std::cos(w0);
     float sinw0 = std::sin(w0);
     float A = std::pow(10.0f, gain / 40.0f);

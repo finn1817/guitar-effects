@@ -7,8 +7,7 @@
 #include <memory>
 #include <mutex>
 
-#define MINIAUDIO_IMPLEMENTATION
-#include "miniaudio.h"
+#include "miniaudio.h" // Implementation compiled in AudioEngine.cpp
 
 class DSPChain;
 class Looper;

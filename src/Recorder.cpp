@@ -138,27 +138,27 @@ void Recorder::writeWavFile(const std::string& filepath)
     // RIFF header
     file.write("RIFF", 4);
     int chunkSize = 36 + dataSize;
-    file.write(reinterpret_cast<char*>(&chunkSize), 4);
+    file.write(reinterpret_cast<const char*>(&chunkSize), 4);
     file.write("WAVE", 4);
     
     // fmt chunk
     file.write("fmt ", 4);
     int fmtSize = 16;
-    file.write(reinterpret_cast<char*>(&fmtSize), 4);
+    file.write(reinterpret_cast<const char*>(&fmtSize), 4);
     short audioFormat = 1; // PCM
-    file.write(reinterpret_cast<char*>(&audioFormat), 2);
+    file.write(reinterpret_cast<const char*>(&audioFormat), 2);
     short channels = numChannels;
-    file.write(reinterpret_cast<char*>(&channels), 2);
-    file.write(reinterpret_cast<char*>(&sampleRate_), 4);
-    file.write(reinterpret_cast<char*>(&byteRate), 4);
+    file.write(reinterpret_cast<const char*>(&channels), 2);
+    file.write(reinterpret_cast<const char*>(&sampleRate_), 4);
+    file.write(reinterpret_cast<const char*>(&byteRate), 4);
     short blockAlignShort = blockAlign;
-    file.write(reinterpret_cast<char*>(&blockAlignShort), 2);
+    file.write(reinterpret_cast<const char*>(&blockAlignShort), 2);
     short bps = bitsPerSample;
-    file.write(reinterpret_cast<char*>(&bps), 2);
+    file.write(reinterpret_cast<const char*>(&bps), 2);
     
     // data chunk
     file.write("data", 4);
-    file.write(reinterpret_cast<char*>(&dataSize), 4);
+    file.write(reinterpret_cast<const char*>(&dataSize), 4);
     
     // Write interleaved samples
     for (size_t i = 0; i < recordedFrames_; ++i) {

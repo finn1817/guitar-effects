@@ -49,6 +49,7 @@ private:
     
     int sampleRate_{48000};
     int maxLengthSamples_;
+    float maxLengthSeconds_ { static_cast<float>(MAX_LOOP_SECONDS) };
     int loopLength_{0};
     int position_{0};
     

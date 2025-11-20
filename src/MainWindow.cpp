@@ -59,8 +59,8 @@ void MainWindow::setupUI()
     QHBoxLayout* topLayout = new QHBoxLayout();
     createAudioIOPanel();
     createMetersPanel();
-    topLayout->addWidget(findChild<QGroupBox*>("audioIOPanel"));
-    topLayout->addWidget(findChild<QGroupBox*>("metersPanel"));
+    topLayout->addWidget(makeCollapsible(findChild<QGroupBox*>("audioIOPanel")));
+    topLayout->addWidget(makeCollapsible(findChild<QGroupBox*>("metersPanel")));
     mainLayout->addLayout(topLayout);
     
     // Middle section - Effects tabs
@@ -73,18 +73,43 @@ void MainWindow::setupUI()
     QVBoxLayout* leftColumn = new QVBoxLayout();
     createLooperPanel();
     createRecorderPanel();
-    leftColumn->addWidget(findChild<QGroupBox*>("looperPanel"));
-    leftColumn->addWidget(findChild<QGroupBox*>("recorderPanel"));
+    leftColumn->addWidget(makeCollapsible(findChild<QGroupBox*>("looperPanel")));
+    leftColumn->addWidget(makeCollapsible(findChild<QGroupBox*>("recorderPanel")));
     
     QVBoxLayout* rightColumn = new QVBoxLayout();
     createPlaybackPanel();
     createPresetsPanel();
-    rightColumn->addWidget(findChild<QGroupBox*>("playbackPanel"));
-    rightColumn->addWidget(findChild<QGroupBox*>("presetsPanel"));
+    rightColumn->addWidget(makeCollapsible(findChild<QGroupBox*>("playbackPanel")));
+    rightColumn->addWidget(makeCollapsible(findChild<QGroupBox*>("presetsPanel")));
     
     bottomLayout->addLayout(leftColumn);
     bottomLayout->addLayout(rightColumn);
     mainLayout->addLayout(bottomLayout);
+}
+
+QWidget* MainWindow::makeCollapsible(QGroupBox* box)
+{
+    if (!box) return nullptr;
+    QWidget* container = new QWidget();
+    QVBoxLayout* v = new QVBoxLayout(container);
+    v->setContentsMargins(0,0,0,0);
+    QToolButton* btn = new QToolButton(container);
+    btn->setText(box->title());
+    btn->setCheckable(true);
+    btn->setChecked(true);
+    btn->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    btn->setArrowType(Qt::DownArrow);
+    btn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    btn->setStyleSheet("QToolButton { font-weight: bold; background: #e6e6e6; padding:6px; border:1px solid #c0c0c0; border-radius:4px; }"
+                      "QToolButton:pressed { background: #d0d0d0; }");
+    box->setTitle("");
+    v->addWidget(btn);
+    v->addWidget(box);
+    connect(btn, &QToolButton::toggled, this, [box, btn](bool on){
+        box->setVisible(on);
+        btn->setArrowType(on ? Qt::DownArrow : Qt::RightArrow);
+    });
+    return container;
 }
 
 void MainWindow::createAudioIOPanel()
