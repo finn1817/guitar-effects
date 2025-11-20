@@ -480,14 +480,14 @@ void MainWindow::createEffectsPanel()
     // Quick Preset Buttons Row
     QWidget* quickPresetWidget = new QWidget();
     QHBoxLayout* quickLayout = new QHBoxLayout(quickPresetWidget);
-    quickDistButton_ = new QPushButton("High Distortion");
+    quickDistButton_ = new QPushButton("Rich Fuzz");
     quickAcousticButton_ = new QPushButton("Acoustic Clean");
     quickAmbientButton_ = new QPushButton("Ambient Space");
     quickLayout->addWidget(quickDistButton_);
     quickLayout->addWidget(quickAcousticButton_);
     quickLayout->addWidget(quickAmbientButton_);
     effectsTab->addTab(quickPresetWidget, "Quick Presets");
-    connect(quickDistButton_, &QPushButton::clicked, [this]{ applyQuickPreset("distortion"); });
+    connect(quickDistButton_, &QPushButton::clicked, [this]{ applyQuickPreset("richfuzz"); });
     connect(quickAcousticButton_, &QPushButton::clicked, [this]{ applyQuickPreset("acoustic"); });
     connect(quickAmbientButton_, &QPushButton::clicked, [this]{ applyQuickPreset("ambient"); });
     
@@ -1690,120 +1690,74 @@ void MainWindow::applyQuickPreset(const QString& name)
     if (!audioEngine_->getDSPChain()) return;
     auto& p = audioEngine_->getDSPChain()->getParams();
 
-    if (name == "distortion") {
-        // High distortion: strong drive, pre-gain high, scooped mids, presence boost, short delay, small reverb
-        p.driveBypass.store(false);
-        driveBypass_->setChecked(false);
-        driveAmount_->setValue(85); // heavy drive
-        preGainSlider_->setValue(80);
-        p.driveAmount.store(0.85f);
-        p.preGain.store(0.80f);
-        p.eqBypass.store(false);
-        eqBypass_->setChecked(false);
-        lowGain_->setValue(4);
-        midGain_->setValue(-6);
-        highGain_->setValue(5);
-        presenceGain_->setValue(6);
-        p.lowGain.store(4);
-        p.midGain.store(-6);
-        p.highGain.store(5);
-        p.presenceGain.store(6);
-        p.compBypass.store(false);
-        compBypass_->setChecked(false);
-        compThreshold_->setValue(60); // ~ -16 dB
-        compRatio_->setValue(70); // ~7.3:1
-        p.compThreshold.store(-16.0f);
-        p.compRatio.store(7.3f);
-        p.delayBypass.store(false);
-        delayBypass_->setChecked(false);
-        delayTime_->setValue(180); // 180 ms
-        delayFeedback_->setValue(25);
-        delayMix_->setValue(15);
-        p.delayTime.store(0.180f);
-        p.delayFeedback.store(0.25f);
-        p.delayMix.store(0.15f);
-        p.reverbBypass.store(false);
-        reverbBypass_->setChecked(false);
-        reverbSize_->setValue(30);
-        reverbDamping_->setValue(40);
-        reverbMix_->setValue(12);
-        p.reverbSize.store(0.30f);
-        p.reverbDamping.store(0.40f);
-        p.reverbMix.store(0.12f);
+    if (name == "richfuzz") {
+        // Cleaner rich fuzz: moderate drive, strong pre-gain texture, mild scoop, subtle ambience
+        p.driveBypass.store(false); driveBypass_->setChecked(false);
+        driveAmount_->setValue(55); preGainSlider_->setValue(65);
+        p.driveAmount.store(0.55f); p.preGain.store(0.65f);
+        p.eqBypass.store(false); eqBypass_->setChecked(false);
+        lowGain_->setValue(3); midGain_->setValue(-3); highGain_->setValue(4); presenceGain_->setValue(5);
+        p.lowGain.store(3); p.midGain.store(-3); p.highGain.store(4); p.presenceGain.store(5);
+        p.compBypass.store(false); compBypass_->setChecked(false);
+        compThreshold_->setValue(55); // ~ -18 dB
+        compRatio_->setValue(55);     // ~5.9:1
+        p.compThreshold.store(-18.0f); p.compRatio.store(5.9f);
+        p.delayBypass.store(false); delayBypass_->setChecked(false);
+        delayTime_->setValue(140); delayFeedback_->setValue(20); delayMix_->setValue(12);
+        p.delayTime.store(0.140f); p.delayFeedback.store(0.20f); p.delayMix.store(0.12f);
+        p.reverbBypass.store(false); reverbBypass_->setChecked(false);
+        reverbSize_->setValue(35); reverbDamping_->setValue(45); reverbMix_->setValue(15);
+        p.reverbSize.store(0.35f); p.reverbDamping.store(0.45f); p.reverbMix.store(0.15f);
     } else if (name == "acoustic") {
         // Acoustic clean: low drive, gentle EQ boost highs, moderate presence, light compression, subtle reverb
         p.driveBypass.store(false);
         driveBypass_->setChecked(false);
-        driveAmount_->setValue(10);
-        preGainSlider_->setValue(20);
-        p.driveAmount.store(0.10f);
-        p.preGain.store(0.20f);
+        driveAmount_->setValue(8);
+        preGainSlider_->setValue(15);
+        p.driveAmount.store(0.08f);
+        p.preGain.store(0.15f);
         p.eqBypass.store(false);
         eqBypass_->setChecked(false);
-        lowGain_->setValue(2);
+        lowGain_->setValue(1);
         midGain_->setValue(0);
-        highGain_->setValue(3);
-        presenceGain_->setValue(4);
-        p.lowGain.store(2);
-        p.midGain.store(0);
-        p.highGain.store(3);
-        p.presenceGain.store(4);
+        highGain_->setValue(4);
+        presenceGain_->setValue(3);
+        p.lowGain.store(1); p.midGain.store(0); p.highGain.store(4); p.presenceGain.store(3);
         p.compBypass.store(false);
         compBypass_->setChecked(false);
-        compThreshold_->setValue(50); // ~ -20 dB
-        compRatio_->setValue(30); // ~3.7:1
-        p.compThreshold.store(-20.0f);
-        p.compRatio.store(3.7f);
+        compThreshold_->setValue(48); // ~ -20.8 dB
+        compRatio_->setValue(28); // ~3.5:1
+        p.compThreshold.store(-20.8f); p.compRatio.store(3.5f);
         p.delayBypass.store(true);
         delayBypass_->setChecked(true);
         p.reverbBypass.store(false);
         reverbBypass_->setChecked(false);
-        reverbSize_->setValue(45);
-        reverbDamping_->setValue(55);
-        reverbMix_->setValue(22);
-        p.reverbSize.store(0.45f);
-        p.reverbDamping.store(0.55f);
-        p.reverbMix.store(0.22f);
+        reverbSize_->setValue(40); reverbDamping_->setValue(50); reverbMix_->setValue(18);
+        p.reverbSize.store(0.40f); p.reverbDamping.store(0.50f); p.reverbMix.store(0.18f);
     } else if (name == "ambient") {
         // Ambient space: moderate drive, big delay + reverb, scooped lows, airy highs, strong presence
         p.driveBypass.store(false);
         driveBypass_->setChecked(false);
-        driveAmount_->setValue(35);
-        preGainSlider_->setValue(40);
-        p.driveAmount.store(0.35f);
-        p.preGain.store(0.40f);
+        driveAmount_->setValue(30);
+        preGainSlider_->setValue(35);
+        p.driveAmount.store(0.30f); p.preGain.store(0.35f);
         p.eqBypass.store(false);
         eqBypass_->setChecked(false);
-        lowGain_->setValue(-2);
-        midGain_->setValue(1);
-        highGain_->setValue(6);
-        presenceGain_->setValue(8);
-        p.lowGain.store(-2);
-        p.midGain.store(1);
-        p.highGain.store(6);
-        p.presenceGain.store(8);
+        lowGain_->setValue(-1); midGain_->setValue(1); highGain_->setValue(5); presenceGain_->setValue(7);
+        p.lowGain.store(-1); p.midGain.store(1); p.highGain.store(5); p.presenceGain.store(7);
         p.compBypass.store(false);
         compBypass_->setChecked(false);
-        compThreshold_->setValue(55); // ~ -18 dB
-        compRatio_->setValue(45); // ~5.0:1
-        p.compThreshold.store(-18.0f);
-        p.compRatio.store(5.0f);
+        compThreshold_->setValue(53); // slight change
+        compRatio_->setValue(42);
+        p.compThreshold.store(-18.6f); p.compRatio.store(4.8f);
         p.delayBypass.store(false);
         delayBypass_->setChecked(false);
-        delayTime_->setValue(650);
-        delayFeedback_->setValue(55);
-        delayMix_->setValue(40);
-        p.delayTime.store(0.650f);
-        p.delayFeedback.store(0.55f);
-        p.delayMix.store(0.40f);
+        delayTime_->setValue(600); delayFeedback_->setValue(50); delayMix_->setValue(35);
+        p.delayTime.store(0.600f); p.delayFeedback.store(0.50f); p.delayMix.store(0.35f);
         p.reverbBypass.store(false);
         reverbBypass_->setChecked(false);
-        reverbSize_->setValue(80);
-        reverbDamping_->setValue(60);
-        reverbMix_->setValue(45);
-        p.reverbSize.store(0.80f);
-        p.reverbDamping.store(0.60f);
-        p.reverbMix.store(0.45f);
+        reverbSize_->setValue(75); reverbDamping_->setValue(58); reverbMix_->setValue(40);
+        p.reverbSize.store(0.75f); p.reverbDamping.store(0.58f); p.reverbMix.store(0.40f);
     }
 
     updateEffectsUI();

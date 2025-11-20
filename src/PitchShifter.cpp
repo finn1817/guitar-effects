@@ -34,6 +34,11 @@ void PitchShifter::process(const float* input, float* outputL, float* outputR,
                            int numSamples, float semitones)
 {
     float pitchRatio = std::pow(2.0f, semitones / 12.0f);
+    // Simple dry mix ratio to preserve body and mitigate hollow sound.
+    const float dryMix = 0.15f; // retain some original
+    const float wetMix = 1.0f - dryMix;
+    float rmsInAccum = 0.0f;
+    int rmsCount = 0;
     
     for (int i = 0; i < numSamples; ++i) {
         // Add input to buffer
@@ -61,15 +66,35 @@ void PitchShifter::process(const float* input, float* outputL, float* outputR,
             }
         }
         
-        // Output with overlap
-        outputL[i] = overlapL_[0];
-        outputR[i] = overlapR_[0];
+        // Output with overlap (will normalize later)
+        float wetL = overlapL_[0];
+        float wetR = overlapR_[0];
+        outputL[i] = wetL * wetMix + input[i] * dryMix;
+        outputR[i] = wetR * wetMix + input[i] * dryMix;
+        rmsInAccum += input[i] * input[i];
+        rmsCount++;
         
         // Shift overlap buffer
         std::memmove(overlapL_.data(), overlapL_.data() + 1, (FFT_SIZE - 1) * sizeof(float));
         std::memmove(overlapR_.data(), overlapR_.data() + 1, (FFT_SIZE - 1) * sizeof(float));
         overlapL_[FFT_SIZE - 1] = 0.0f;
         overlapR_[FFT_SIZE - 1] = 0.0f;
+    }
+    // Post normalization: scale wet output so RMS roughly matches input RMS.
+    if (rmsCount > 0) {
+        float rmsIn = std::sqrt(rmsInAccum / rmsCount);
+        float rmsOutAccum = 0.0f;
+        for (int i = 0; i < numSamples; ++i) {
+            rmsOutAccum += (outputL[i] + outputR[i]) * 0.5f * (outputL[i] + outputR[i]) * 0.5f;
+        }
+        float rmsOut = std::sqrt(rmsOutAccum / numSamples);
+        if (rmsOut > 0.00001f && rmsIn > 0.00001f) {
+            float scale = rmsIn / rmsOut;
+            for (int i = 0; i < numSamples; ++i) {
+                outputL[i] *= scale;
+                outputR[i] *= scale;
+            }
+        }
     }
 }
 
