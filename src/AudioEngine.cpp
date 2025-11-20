@@ -128,6 +128,33 @@ bool AudioEngine::start(const std::string& inputDeviceId, const std::string& out
     }
     config.dataCallback = audioCallback;
     config.pUserData = this;
+
+    // Map provided IDs (stored as index strings) to actual miniaudio device IDs.
+    // If conversion fails or index out of range, we keep defaults.
+    ma_device_info* pPlaybackInfos = nullptr;
+    ma_uint32 playbackCount = 0;
+    ma_device_info* pCaptureInfos = nullptr;
+    ma_uint32 captureCount = 0;
+    if (ma_context_get_devices(&context_, &pPlaybackInfos, &playbackCount, &pCaptureInfos, &captureCount) == MA_SUCCESS) {
+        // Input (capture)
+        if (!inputDeviceId.empty()) {
+            try {
+                int idx = std::stoi(inputDeviceId);
+                if (idx >= 0 && (ma_uint32)idx < captureCount) {
+                    config.capture.pDeviceID = &pCaptureInfos[idx].id;
+                }
+            } catch (...) { /* ignore */ }
+        }
+        // Output (playback)
+        if (!outputDeviceId.empty()) {
+            try {
+                int idx = std::stoi(outputDeviceId);
+                if (idx >= 0 && (ma_uint32)idx < playbackCount) {
+                    config.playback.pDeviceID = &pPlaybackInfos[idx].id;
+                }
+            } catch (...) { /* ignore */ }
+        }
+    }
     
 #ifdef _WIN32
     if (wasapiExclusive) {
