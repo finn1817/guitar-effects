@@ -1170,6 +1170,10 @@ void MainWindow::updateLooperStatus()
     
     auto state = audioEngine_->getLooper()->getState();
     int loopLength = audioEngine_->getLooper()->getLoopLength();
+        int slots = audioEngine_->getLooper()->getSlotCount();
+        if (slots > 0) {
+            looperStatusLabel_->setText(looperStatusLabel_->text() + QString(" | Slots: %1").arg(slots));
+        }
     int position = audioEngine_->getLooper()->getCurrentPosition();
     
     QString statusText;
@@ -1452,6 +1456,45 @@ float MainWindow::linearTodB(float linear)
 {
     if (linear < 0.00001f) return -100.0f;
     return 20.0f * std::log10(linear);
+}
+
+// ===== Multi-loop helpers =====
+void MainWindow::addLoopSlotButton(int index)
+{
+    QPushButton* btn = new QPushButton(QString::number(index + 1));
+    btn->setCheckable(true);
+    btn->setChecked(true);
+    btn->setMinimumWidth(32);
+    btn->setStyleSheet("QPushButton { padding:4px; } QPushButton:checked { background:#1e6efb; color:white; }");
+    loopButtonsLayout_->addWidget(btn);
+    loopSlotButtons_.push_back(btn);
+    connect(btn, &QPushButton::clicked, this, [this, index]() { onLoopSlotClicked(index); });
+}
+
+void MainWindow::refreshLoopButtonsStyles()
+{
+    for (int i = 0; i < (int)loopSlotButtons_.size(); ++i) {
+        bool sel = audioEngine_->getLooper()->isSlotSelected(i);
+        loopSlotButtons_[i]->setChecked(sel);
+    }
+}
+
+void MainWindow::onLoopSlotClicked(int index)
+{
+    audioEngine_->getLooper()->toggleSlotSelection(index);
+    refreshLoopButtonsStyles();
+}
+
+void MainWindow::onLoopRemoveAll()
+{
+    audioEngine_->getLooper()->clearAllSlots();
+    for (auto* b : loopSlotButtons_) {
+        loopButtonsLayout_->removeWidget(b);
+        b->deleteLater();
+    }
+    loopSlotButtons_.clear();
+    loopRemoveAllButton_->setEnabled(false);
+    refreshLoopButtonsStyles();
 }
 
 // ===== Multi-loop helpers =====

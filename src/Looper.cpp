@@ -24,41 +24,79 @@ void Looper::process(float* bufferL, float* bufferR, int numSamples)
     
     std::lock_guard<std::mutex> lock(bufferMutex_);
 
-    // Single-loop recording / overdub / playback (legacy primary loop)
-    if (state != LooperState::Off) {
+    // When recording, we audibly layer currently active slots while capturing
+    // new audio into the working buffer. This enables successive Record presses
+    // to build up a stack of loops.
+    if (state == LooperState::Recording) {
         for (int i = 0; i < numSamples; ++i) {
-            if (state == LooperState::Recording) {
-                if (position_ < maxLengthSamples_) {
-                    loopBufferL_[position_] = bufferL[i];
-                    loopBufferR_[position_] = bufferR[i];
-                    position_++;
-                }
-            } else if (state == LooperState::Playing) {
-                if (loopLength_ > 0) {
-                    bufferL[i] += loopBufferL_[position_] * level;
-                    bufferR[i] += loopBufferR_[position_] * level;
-                    position_ = (position_ + 1) % loopLength_;
-                }
-            } else if (state == LooperState::Overdubbing) {
-                if (loopLength_ > 0) {
-                    bufferL[i] += loopBufferL_[position_] * level;
-                    bufferR[i] += loopBufferR_[position_] * level;
-                    loopBufferL_[position_] = loopBufferL_[position_] * 0.7f + bufferL[i] * 0.3f;
-                    loopBufferR_[position_] = loopBufferR_[position_] * 0.7f + bufferR[i] * 0.3f;
-                    position_ = (position_ + 1) % loopLength_;
-                }
-            }
-        }
-    }
-
-    // Multi-slot playback/mix
-    if (!slots_.empty()) {
-        for (int i = 0; i < numSamples; ++i) {
+            // Play active slots (previous layers) into output first
             for (auto &slot : slots_) {
                 if (slot.active && slot.length > 0) {
                     bufferL[i] += slot.left[slot.position] * level;
                     bufferR[i] += slot.right[slot.position] * level;
                     slot.position = (slot.position + 1) % slot.length;
+                }
+            }
+            // Capture new layer
+            if (position_ < maxLengthSamples_) {
+                loopBufferL_[position_] = bufferL[i];
+                loopBufferR_[position_] = bufferR[i];
+                position_++;
+            }
+        }
+    } else if (state == LooperState::Playing) {
+        // Legacy single loop playback (only used before first slot creation)
+        if (loopLength_ > 0) {
+            for (int i = 0; i < numSamples; ++i) {
+                bufferL[i] += loopBufferL_[position_] * level;
+                bufferR[i] += loopBufferR_[position_] * level;
+                position_ = (position_ + 1) % loopLength_;
+            }
+        }
+        // Slots playback (after first slot exists we rely mostly on slots_)
+        if (!slots_.empty()) {
+            for (int i = 0; i < numSamples; ++i) {
+                for (auto &slot : slots_) {
+                    if (slot.active && slot.length > 0) {
+                        bufferL[i] += slot.left[slot.position] * level;
+                        bufferR[i] += slot.right[slot.position] * level;
+                        slot.position = (slot.position + 1) % slot.length;
+                    }
+                }
+            }
+        }
+    } else if (state == LooperState::Overdubbing) {
+        // Overdub onto legacy single loop only (prior to slot conversion)
+        if (loopLength_ > 0) {
+            for (int i = 0; i < numSamples; ++i) {
+                bufferL[i] += loopBufferL_[position_] * level;
+                bufferR[i] += loopBufferR_[position_] * level;
+                loopBufferL_[position_] = loopBufferL_[position_] * 0.7f + bufferL[i] * 0.3f;
+                loopBufferR_[position_] = loopBufferR_[position_] * 0.7f + bufferR[i] * 0.3f;
+                position_ = (position_ + 1) % loopLength_;
+            }
+        }
+        // Also mix any active slots
+        if (!slots_.empty()) {
+            for (int i = 0; i < numSamples; ++i) {
+                for (auto &slot : slots_) {
+                    if (slot.active && slot.length > 0) {
+                        bufferL[i] += slot.left[slot.position] * level;
+                        bufferR[i] += slot.right[slot.position] * level;
+                        slot.position = (slot.position + 1) % slot.length;
+                    }
+                }
+            }
+        }
+    } else { // Off state - only play any active slots (should normally be none)
+        if (!slots_.empty()) {
+            for (int i = 0; i < numSamples; ++i) {
+                for (auto &slot : slots_) {
+                    if (slot.active && slot.length > 0) {
+                        bufferL[i] += slot.left[slot.position] * level;
+                        bufferR[i] += slot.right[slot.position] * level;
+                        slot.position = (slot.position + 1) % slot.length;
+                    }
                 }
             }
         }
@@ -68,13 +106,28 @@ void Looper::process(float* bufferL, float* bufferR, int numSamples)
 void Looper::startRecording()
 {
     std::lock_guard<std::mutex> lock(bufferMutex_);
-    
-    // Clear existing loop
+    // If a legacy primary loop exists and no slots yet, convert it into a slot
+    if (loopLength_ > 0 && slots_.empty()) {
+        LoopSlot slot;
+        slot.length = loopLength_;
+        slot.left.assign(loopBufferL_.begin(), loopBufferL_.begin() + loopLength_);
+        slot.right.assign(loopBufferR_.begin(), loopBufferR_.begin() + loopLength_);
+        slot.selected = true;
+        slots_.push_back(std::move(slot));
+        // Reset legacy loop so future playback uses slots only
+        loopLength_ = 0;
+        position_ = 0;
+    }
+
+    // Prepare new recording buffers (reuse legacy loopBuffer as working area)
     std::fill(loopBufferL_.begin(), loopBufferL_.end(), 0.0f);
     std::fill(loopBufferR_.begin(), loopBufferR_.end(), 0.0f);
-    
     position_ = 0;
     loopLength_ = 0;
+
+    // Ensure selected slots start from beginning for alignment
+    playSelectedSlots();
+
     state_.store(LooperState::Recording);
 }
 

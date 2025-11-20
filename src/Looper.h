@@ -55,6 +55,11 @@ private:
     
     std::vector<float> loopBufferL_;
     std::vector<float> loopBufferR_;
+
+    // Working buffers used only for the active recording pass. The legacy
+    // single-loop buffers above are reused as a temporary capture area and
+    // then copied into a slot on stopRecording(). We layer by playing any
+    // selected/active slots while capturing new audio here.
     
     int sampleRate_{48000};
     int maxLengthSamples_;
