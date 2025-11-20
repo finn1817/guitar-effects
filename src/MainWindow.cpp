@@ -69,21 +69,33 @@ void MainWindow::setupUI()
     
     // Bottom section - Looper, Recorder, Playback, Presets
     QHBoxLayout* bottomLayout = new QHBoxLayout();
+    bottomLayout->setSpacing(12);
     
     QVBoxLayout* leftColumn = new QVBoxLayout();
+    leftColumn->setSpacing(8);
     createLooperPanel();
     createRecorderPanel();
-    leftColumn->addWidget(makeCollapsible(findChild<QGroupBox*>("looperPanel")));
-    leftColumn->addWidget(makeCollapsible(findChild<QGroupBox*>("recorderPanel")));
+    QWidget* looperContainer = makeCollapsible(findChild<QGroupBox*>("looperPanel"));
+    QWidget* recorderContainer = makeCollapsible(findChild<QGroupBox*>("recorderPanel"));
+    leftColumn->addWidget(looperContainer);
+    leftColumn->addWidget(recorderContainer);
+    leftColumn->setStretchFactor(looperContainer, 2);
+    leftColumn->setStretchFactor(recorderContainer, 1);
     
     QVBoxLayout* rightColumn = new QVBoxLayout();
+    rightColumn->setSpacing(8);
     createPlaybackPanel();
     createPresetsPanel();
-    rightColumn->addWidget(makeCollapsible(findChild<QGroupBox*>("playbackPanel")));
-    rightColumn->addWidget(makeCollapsible(findChild<QGroupBox*>("presetsPanel")));
+    QWidget* playbackContainer = makeCollapsible(findChild<QGroupBox*>("playbackPanel"));
+    QWidget* presetsContainer = makeCollapsible(findChild<QGroupBox*>("presetsPanel"));
+    rightColumn->addWidget(playbackContainer);
+    rightColumn->addWidget(presetsContainer);
+    // Give playback more space than presets
+    rightColumn->setStretchFactor(playbackContainer, 3);
+    rightColumn->setStretchFactor(presetsContainer, 2);
     
-    bottomLayout->addLayout(leftColumn);
-    bottomLayout->addLayout(rightColumn);
+    bottomLayout->addLayout(leftColumn, 1);
+    bottomLayout->addLayout(rightColumn, 1);
     mainLayout->addLayout(bottomLayout);
 }
 
@@ -681,8 +693,12 @@ void MainWindow::createPlaybackPanel()
     QGroupBox* panel = new QGroupBox("Playback Studio", this);
     panel->setObjectName("playbackPanel");
     QVBoxLayout* layout = new QVBoxLayout(panel);
+    panel->setMinimumHeight(260); // ensure adequate vertical space
+    panel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     
     clipList_ = new QListWidget();
+    clipList_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    clipList_->setMinimumHeight(120);
     layout->addWidget(clipList_);
     
     QHBoxLayout* transportLayout = new QHBoxLayout();
@@ -719,6 +735,9 @@ void MainWindow::createPlaybackPanel()
     manageLayout->addWidget(deleteButton_);
     manageLayout->addWidget(revealButton_);
     layout->addLayout(manageLayout);
+
+    // Slight spacing adjustments so controls are not cramped
+    layout->setSpacing(6);
     
     connect(clipList_, &QListWidget::itemSelectionChanged, this, &MainWindow::onClipSelected);
     connect(playButton_, &QPushButton::clicked, this, &MainWindow::onPlayClip);
@@ -739,8 +758,12 @@ void MainWindow::createPresetsPanel()
     QGroupBox* panel = new QGroupBox("Presets", this);
     panel->setObjectName("presetsPanel");
     QVBoxLayout* layout = new QVBoxLayout(panel);
+    panel->setMinimumHeight(200);
+    panel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     
     presetList_ = new QListWidget();
+    presetList_->setMinimumHeight(110);
+    presetList_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     layout->addWidget(presetList_);
     
     QHBoxLayout* nameLayout = new QHBoxLayout();
