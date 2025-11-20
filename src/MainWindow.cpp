@@ -13,6 +13,7 @@
 #include <QFile>
 #include <QScreen>
 #include <QApplication>
+#include <QShowEvent>
 #include <cmath>
 
 MainWindow::MainWindow(QWidget *parent)
@@ -1790,7 +1791,8 @@ void MainWindow::applyDarkTheme()
     pal.setColor(QPalette::BrightText, QColor(0xff,0x00,0x00));
     pal.setColor(QPalette::Highlight, QColor(0x49,0x78,0xff));
     pal.setColor(QPalette::HighlightedText, QColor(0xff,0xff,0xff));
-    QApplication::setPalette(pal);
+    qApp->setStyle("Fusion");
+    qApp->setPalette(pal);
 
     QString style = R"(QWidget { background-color: #1d1f21; color: #f0f0f0; }
 QGroupBox { border:1px solid #3a3d40; margin-top:4px; background-color:#2a2d30; border-radius:4px; }
@@ -1809,7 +1811,8 @@ QScrollBar::handle:vertical { background:#4978ff; min-height:20px; border-radius
 QProgressBar { border:1px solid #3a3d40; text-align:center; }
 QProgressBar::chunk { background-color:#4978ff; }
 )";
-    QApplication::setStyleSheet(style);
+    // Apply global stylesheet correctly
+    qApp->setStyleSheet(style);
 }
 
 void MainWindow::showEvent(QShowEvent* event)
@@ -1817,18 +1820,7 @@ void MainWindow::showEvent(QShowEvent* event)
     QMainWindow::showEvent(event);
     if (firstShow_) {
         firstShow_ = false;
-        // Force 1920x1080 or scale down to available screen preserving aspect
-        QScreen* scr = QGuiApplication::primaryScreen();
-        QSize target(1920,1080);
-        QRect avail = scr->availableGeometry();
-        if (target.width() > avail.width() || target.height() > avail.height()) {
-            // scale proportionally
-            double wRatio = (double)avail.width()/target.width();
-            double hRatio = (double)avail.height()/target.height();
-            double ratio = std::min(wRatio, hRatio);
-            target = QSize(int(target.width()*ratio), int(target.height()*ratio));
-        }
-        resize(target);
-        move(avail.center() - QPoint(target.width()/2, target.height()/2));
+        // Always maximize regardless of resolution preference
+        showMaximized();
     }
 }
