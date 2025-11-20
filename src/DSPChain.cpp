@@ -33,23 +33,27 @@ void DSPChain::setSampleRate(int sampleRate)
 
 void DSPChain::process(const float* input, float* outputL, float* outputR, int numSamples)
 {
-    // Copy input to working buffer
-    std::vector<float> buffer(numSamples);
-    std::memcpy(buffer.data(), input, numSamples * sizeof(float));
+    // Prepare reusable buffers
+    if ((int)workBuffer_.size() != numSamples) {
+        workBuffer_.resize(numSamples);
+        monoTemp_.resize(numSamples);
+    }
+    std::memcpy(workBuffer_.data(), input, numSamples * sizeof(float));
+    float* buffer = workBuffer_.data();
     
     // Gate
     if (!params_.gateBypass.load()) {
-        processGate(buffer.data(), numSamples);
+        processGate(buffer, numSamples);
     }
     
     // Drive
     if (!params_.driveBypass.load()) {
-        processDrive(buffer.data(), numSamples);
+        processDrive(buffer, numSamples);
     }
     
     // EQ (process to stereo from here)
-    std::memcpy(outputL, buffer.data(), numSamples * sizeof(float));
-    std::memcpy(outputR, buffer.data(), numSamples * sizeof(float));
+    std::memcpy(outputL, buffer, numSamples * sizeof(float));
+    std::memcpy(outputR, buffer, numSamples * sizeof(float));
     
     if (!params_.eqBypass.load()) {
         processEQ(outputL, numSamples);
@@ -63,23 +67,27 @@ void DSPChain::process(const float* input, float* outputL, float* outputR, int n
     }
     
     // Pitch Shift
-    if (!params_.pitchBypass.load() && params_.pitchMode.load() != 0) {
-        // Create temp buffer from current output
-        std::vector<float> monoTemp(numSamples);
-        for (int i = 0; i < numSamples; ++i) {
-            monoTemp[i] = (outputL[i] + outputR[i]) * 0.5f;
+    if (!lowLatencyMode_) {
+        if (!params_.pitchBypass.load() && params_.pitchMode.load() != 0) {
+            for (int i = 0; i < numSamples; ++i) {
+                monoTemp_[i] = (outputL[i] + outputR[i]) * 0.5f;
+            }
+            processPitchShift(monoTemp_.data(), outputL, outputR, numSamples);
         }
-        processPitchShift(monoTemp.data(), outputL, outputR, numSamples);
     }
     
     // Delay
-    if (!params_.delayBypass.load()) {
-        processDelay(outputL, outputR, numSamples);
+    if (!lowLatencyMode_) {
+        if (!params_.delayBypass.load()) {
+            processDelay(outputL, outputR, numSamples);
+        }
     }
     
     // Reverb
-    if (!params_.reverbBypass.load()) {
-        processReverb(outputL, outputR, numSamples);
+    if (!lowLatencyMode_) {
+        if (!params_.reverbBypass.load()) {
+            processReverb(outputL, outputR, numSamples);
+        }
     }
 }
 

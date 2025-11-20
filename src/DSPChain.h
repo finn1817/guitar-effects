@@ -64,6 +64,7 @@ public:
     void process(const float* input, float* outputL, float* outputR, int numSamples);
     
     DSPParams& getParams() { return params_; }
+    void setLowLatency(bool enabled) { lowLatencyMode_ = enabled; }
     
 private:
     void processGate(float* buffer, int numSamples);
@@ -110,6 +111,11 @@ private:
     std::vector<float> combBuffersR_[NUM_COMBS];
     int combPositions_[NUM_COMBS]{};
     float combFeedback_[NUM_COMBS];
+
+    // Low latency mode flag and reusable buffers to avoid per-callback allocations
+    bool lowLatencyMode_{false};
+    std::vector<float> workBuffer_;
+    std::vector<float> monoTemp_;
 };
 
 #endif // DSPCHAIN_H

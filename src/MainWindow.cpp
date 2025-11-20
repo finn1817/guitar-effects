@@ -59,6 +59,18 @@ void MainWindow::setupUI()
     setCentralWidget(centralWidget);
     
     QVBoxLayout* mainLayout = new QVBoxLayout(centralWidget);
+    mainLayout->setSpacing(10);
+    mainLayout->setContentsMargins(8,8,8,8);
+
+    QHBoxLayout* topBarLayout = new QHBoxLayout();
+    topBarLayout->setContentsMargins(0,0,0,0);
+    topBarLayout->addStretch();
+    QPushButton* closeButton = new QPushButton("Close App");
+    closeButton->setObjectName("closeAppButton");
+    closeButton->setMinimumHeight(26);
+    connect(closeButton, &QPushButton::clicked, this, &MainWindow::close);
+    topBarLayout->addWidget(closeButton);
+    mainLayout->addLayout(topBarLayout);
     
     // Top section - Audio I/O and Meters
     QHBoxLayout* topLayout = new QHBoxLayout();
@@ -139,6 +151,9 @@ void MainWindow::createAudioIOPanel()
     layout->addWidget(new QLabel("Input Device:"), 0, 0);
     inputDeviceCombo_ = new QComboBox();
     layout->addWidget(inputDeviceCombo_, 0, 1, 1, 2);
+    refreshDevicesButton_ = new QPushButton("Refresh Devices");
+    refreshDevicesButton_->setToolTip("Re-enumerate audio input/output devices");
+    layout->addWidget(refreshDevicesButton_, 0, 3);
     
     layout->addWidget(new QLabel("Output Device:"), 1, 0);
     outputDeviceCombo_ = new QComboBox();
@@ -177,6 +192,7 @@ void MainWindow::createAudioIOPanel()
     
     connect(startButton_, &QPushButton::clicked, this, &MainWindow::onStartEngine);
     connect(stopButton_, &QPushButton::clicked, this, &MainWindow::onStopEngine);
+    connect(refreshDevicesButton_, &QPushButton::clicked, this, &MainWindow::onRefreshDevices);
     
     // Gain controls
     layout->addWidget(new QLabel("Input Gain:"), 5, 0);
@@ -216,6 +232,50 @@ void MainWindow::createAudioIOPanel()
             outputDeviceCombo_->setCurrentIndex(outputDeviceCombo_->count() - 1);
         }
     }
+}
+
+void MainWindow::onRefreshDevices()
+{
+    if (engineRunning_) {
+        auto reply = QMessageBox::question(this, "Engine Running",
+            "Refreshing devices while engine is running may require a restart. Stop engine now?",
+            QMessageBox::Yes | QMessageBox::No);
+        if (reply == QMessageBox::Yes) {
+            onStopEngine();
+        }
+    }
+
+    QString prevInputId = inputDeviceCombo_->currentData().toString();
+    QString prevOutputId = outputDeviceCombo_->currentData().toString();
+
+    inputDeviceCombo_->clear();
+    outputDeviceCombo_->clear();
+
+    auto inputDevices = audioEngine_->getInputDevices();
+    int defaultInputIndex = -1;
+    int restoreInputIndex = -1;
+    for (int i = 0; i < (int)inputDevices.size(); ++i) {
+        const auto &dev = inputDevices[i];
+        inputDeviceCombo_->addItem(QString::fromStdString(dev.name), QString::fromStdString(dev.id));
+        if (dev.isDefault) defaultInputIndex = i;
+        if (prevInputId == QString::fromStdString(dev.id)) restoreInputIndex = i;
+    }
+    if (restoreInputIndex != -1) inputDeviceCombo_->setCurrentIndex(restoreInputIndex);
+    else if (defaultInputIndex != -1) inputDeviceCombo_->setCurrentIndex(defaultInputIndex);
+
+    auto outputDevices = audioEngine_->getOutputDevices();
+    int defaultOutputIndex = -1;
+    int restoreOutputIndex = -1;
+    for (int i = 0; i < (int)outputDevices.size(); ++i) {
+        const auto &dev = outputDevices[i];
+        outputDeviceCombo_->addItem(QString::fromStdString(dev.name), QString::fromStdString(dev.id));
+        if (dev.isDefault) defaultOutputIndex = i;
+        if (prevOutputId == QString::fromStdString(dev.id)) restoreOutputIndex = i;
+    }
+    if (restoreOutputIndex != -1) outputDeviceCombo_->setCurrentIndex(restoreOutputIndex);
+    else if (defaultOutputIndex != -1) outputDeviceCombo_->setCurrentIndex(defaultOutputIndex);
+
+    QMessageBox::information(this, "Devices Refreshed", "Audio devices have been re-enumerated.");
 }
 
 void MainWindow::createMetersPanel()
@@ -612,12 +672,17 @@ void MainWindow::createLooperPanel()
     QGroupBox* panel = new QGroupBox("Looper", this);
     panel->setObjectName("looperPanel");
     QVBoxLayout* layout = new QVBoxLayout(panel);
+    layout->setContentsMargins(8,8,8,8);
+    layout->setSpacing(8);
     
     QHBoxLayout* buttonLayout = new QHBoxLayout();
+    buttonLayout->setSpacing(8);
     looperRecordButton_ = new QPushButton("Record");
     looperPlayButton_ = new QPushButton("Play/Stop");
     looperOverdubButton_ = new QPushButton("Overdub");
     looperClearButton_ = new QPushButton("Clear");
+    QList<QPushButton*> loopBtns{looperRecordButton_, looperPlayButton_, looperOverdubButton_, looperClearButton_};
+    for (auto* b : loopBtns) { b->setMinimumHeight(24); b->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed); }
     
     buttonLayout->addWidget(looperRecordButton_);
     buttonLayout->addWidget(looperPlayButton_);
@@ -641,6 +706,7 @@ void MainWindow::createLooperPanel()
     looperPositionBar_ = new QProgressBar();
     looperPositionBar_->setRange(0, 100);
     looperPositionBar_->setValue(0);
+    looperPositionBar_->setTextVisible(true);
     layout->addWidget(looperPositionBar_);
 
     // Multi-loop slot buttons
@@ -664,11 +730,16 @@ void MainWindow::createRecorderPanel()
     QGroupBox* panel = new QGroupBox("Recorder", this);
     panel->setObjectName("recorderPanel");
     QVBoxLayout* layout = new QVBoxLayout(panel);
+    layout->setContentsMargins(8,8,8,8);
+    layout->setSpacing(8);
     
     QHBoxLayout* buttonLayout = new QHBoxLayout();
+    buttonLayout->setSpacing(8);
     recordStartButton_ = new QPushButton("Start Recording");
     recordStopButton_ = new QPushButton("Stop Recording");
     recordStopButton_->setEnabled(false);
+    recordStartButton_->setMinimumHeight(24);
+    recordStopButton_->setMinimumHeight(24);
     buttonLayout->addWidget(recordStartButton_);
     buttonLayout->addWidget(recordStopButton_);
     layout->addLayout(buttonLayout);
@@ -682,6 +753,7 @@ void MainWindow::createRecorderPanel()
     
     downloadButton_ = new QPushButton("Download/Save As");
     downloadButton_->setEnabled(false);
+    downloadButton_->setMinimumHeight(24);
     layout->addWidget(downloadButton_);
     
     recordStatusLabel_ = new QLabel("Status: Ready");
@@ -1735,41 +1807,44 @@ void MainWindow::applyQuickPreset(const QString& name)
 
 void MainWindow::applyDarkTheme()
 {
-    // Global palette (covers built-in widgets even if stylesheet fails)
+    // Refined dark palette: keep structure similar to default Fusion, just darker.
     QPalette pal;
-    pal.setColor(QPalette::Window, QColor(0x1d,0x1f,0x21));
-    pal.setColor(QPalette::WindowText, QColor(0xf0,0xf0,0xf0));
-    pal.setColor(QPalette::Base, QColor(0x26,0x2a,0x2d));
-    pal.setColor(QPalette::AlternateBase, QColor(0x2f,0x33,0x36));
-    pal.setColor(QPalette::ToolTipBase, QColor(0x2f,0x33,0x36));
-    pal.setColor(QPalette::ToolTipText, QColor(0xf0,0xf0,0xf0));
-    pal.setColor(QPalette::Text, QColor(0xf0,0xf0,0xf0));
-    pal.setColor(QPalette::Button, QColor(0x3a,0x3f,0x44));
-    pal.setColor(QPalette::ButtonText, QColor(0xff,0xff,0xff));
-    pal.setColor(QPalette::BrightText, QColor(0xff,0x00,0x00));
-    pal.setColor(QPalette::Highlight, QColor(0x49,0x78,0xff));
-    pal.setColor(QPalette::HighlightedText, QColor(0xff,0xff,0xff));
+    pal.setColor(QPalette::Window, QColor(33,36,39));          // main window background
+    pal.setColor(QPalette::WindowText, QColor(222,225,228));
+    pal.setColor(QPalette::Base, QColor(42,46,50));            // input fields
+    pal.setColor(QPalette::AlternateBase, QColor(48,52,57));
+    pal.setColor(QPalette::ToolTipBase, QColor(55,59,63));
+    pal.setColor(QPalette::ToolTipText, QColor(230,233,236));
+    pal.setColor(QPalette::Text, QColor(230,233,236));
+    pal.setColor(QPalette::Button, QColor(52,56,60));           // buttons
+    pal.setColor(QPalette::ButtonText, QColor(235,238,241));
+    pal.setColor(QPalette::BrightText, QColor(255,85,85));
+    pal.setColor(QPalette::Highlight, QColor(75,120,255));
+    pal.setColor(QPalette::HighlightedText, QColor(255,255,255));
+    pal.setColor(QPalette::PlaceholderText, QColor(160,165,170));
     qApp->setStyle("Fusion");
     qApp->setPalette(pal);
 
-    QString style = R"(QWidget { background-color: #1d1f21; color: #f0f0f0; }
-QGroupBox { border:1px solid #3a3d40; margin-top:4px; background-color:#2a2d30; border-radius:4px; }
-QToolButton { background:#2f3336; color:#f0f0f0; font-weight:bold; padding:6px; border:1px solid #3a3d40; border-radius:4px; }
-QToolButton:checked { background:#3d4145; }
-QPushButton { background:#3a3f44; color:#ffffff; border:1px solid #555; padding:6px 10px; border-radius:4px; }
-QPushButton:hover { background:#4a5056; }
-QLineEdit, QComboBox, QListWidget, QProgressBar { background:#262a2d; color:#f0f0f0; selection-background-color:#4978ff; }
-QSlider::groove:horizontal { height:6px; background:#3a3d40; border-radius:3px; }
-QSlider::handle:horizontal { background:#4978ff; width:14px; margin:-4px 0; border-radius:7px; }
-QTabWidget::pane { border:1px solid #3a3d40; }
-QTabBar::tab { background:#2f3336; color:#f0f0f0; padding:6px 12px; }
-QTabBar::tab:selected { background:#4978ff; }
-QScrollBar:vertical { background:#2a2d30; width:12px; }
-QScrollBar::handle:vertical { background:#4978ff; min-height:20px; border-radius:6px; }
-QProgressBar { border:1px solid #3a3d40; text-align:center; }
-QProgressBar::chunk { background-color:#4978ff; }
+    // Minimal stylesheet: avoid overriding too much, keep readability and spacing.
+    QString style = R"(
+QWidget { color: #e6e9ec; }
+QGroupBox { border:1px solid #43474c; margin-top:6px; background-color:#2b2f33; border-radius:4px; }
+QGroupBox::title { subcontrol-origin: margin; left:8px; padding:0 4px; }
+QToolButton { background:#32363a; color:#e6e9ec; font-weight:bold; padding:6px; border:1px solid #43474c; border-radius:4px; }
+QToolButton:checked { background:#3a3f44; }
+QPushButton { background:#3b4045; color:#f5f7f9; border:1px solid #565b60; padding:5px 10px; border-radius:3px; }
+QPushButton:hover { background:#465057; }
+QLineEdit, QComboBox, QListWidget { border:1px solid #4a4f54; border-radius:3px; }
+QSlider::groove:horizontal { height:6px; background:#454a50; border-radius:3px; }
+QSlider::handle:horizontal { background:#4b78ff; width:14px; margin:-4px 0; border-radius:7px; }
+QTabWidget::pane { border:1px solid #43474c; }
+QTabBar::tab { background:#32363a; color:#e6e9ec; padding:6px 12px; border-top-left-radius:3px; border-top-right-radius:3px; }
+QTabBar::tab:selected { background:#4b78ff; color:#ffffff; }
+QProgressBar { border:1px solid #43474c; background:#262a2e; text-align:center; }
+QProgressBar::chunk { background-color:#4b78ff; }
+QScrollBar:vertical { background:#2b2f33; width:12px; }
+QScrollBar::handle:vertical { background:#4b78ff; min-height:20px; border-radius:6px; }
 )";
-    // Apply global stylesheet correctly
     qApp->setStyleSheet(style);
 }
 

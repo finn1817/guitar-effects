@@ -43,6 +43,7 @@ private slots:
     void onInputGainChanged(int value);
     void onOutputGainChanged(int value);
     void onResetPeaks();
+    void onRefreshDevices();
     
     // Effects
     void onEffectBypassChanged();
@@ -126,6 +127,7 @@ private:
     QCheckBox* wasapiCheck_;
     QPushButton* startButton_;
     QPushButton* stopButton_;
+    QPushButton* refreshDevicesButton_;
     QSlider* inputGainSlider_;
     QSlider* outputGainSlider_;
     QLabel* inputGainLabel_;

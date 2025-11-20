@@ -160,6 +160,8 @@ bool AudioEngine::start(const std::string& inputDeviceId, const std::string& out
     processedRight_.resize(allocFrames);
     outputMono_.resize(allocFrames);
 
+    // Inform DSP chain of low latency mode so it can skip high-latency effects.
+    dspChain_->setLowLatency(lowLatencyMode_);
     running_.store(true);
     return true;
 }
